@@ -460,6 +460,23 @@ details.past{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}de
 button.mchip{cursor:pointer}
 .mchip.picked{border-color:#fff;box-shadow:0 0 0 3px var(--crimson)}
 .planview{margin:0 0 6px}
+.pkcard{margin:4px 0 12px}
+.pko{list-style:none;margin:6px 0 8px;padding:0}
+.pko li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;border-radius:9px;background:var(--surface-2);margin-bottom:4px;font-size:16px}
+.pko li b{display:inline-block;min-width:22px;color:var(--crimson);font-family:"Barlow Condensed",sans-serif}
+.pko li.warn{background:var(--warn-bg);color:var(--warn)}
+.pkob{display:flex;gap:4px}
+.pkob button{min-width:36px;min-height:34px;border-radius:8px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-size:16px}
+.pkob button:disabled{opacity:.35}
+.pkadd{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pkadd button{border:1.5px dashed var(--line);background:var(--surface);border-radius:20px;padding:5px 12px;min-height:36px;font:inherit;font-size:15px;color:var(--ink)}
+.pkround{font:700 16px "Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:8px}
+.pkfirst{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0;font-size:14px}
+.pkfirst button{border:1.5px solid var(--line);background:var(--surface);border-radius:20px;padding:4px 12px;min-height:34px;font:inherit;font-size:14px;color:var(--ink)}
+.pkfirst button[aria-pressed="true"]{background:var(--crimson);border-color:var(--crimson);color:#fff}
+.pkturn{border:1.5px solid var(--line);border-radius:10px;padding:6px 10px;margin-top:6px}
+.pkturn.now{border-color:var(--crimson);box-shadow:0 0 0 2px rgba(157,2,8,.15)}
+.pkwin{margin-top:8px;padding:10px;border-radius:10px;background:#14532d;color:#fff;font:700 20px "Barlow Condensed",sans-serif;text-align:center}
 .blk.editing{border-color:#e0a800;box-shadow:0 0 0 3px #ffd166}
 .blk .bh .bhr{display:flex;gap:6px;align-items:center}
 .blk .bh .btn{margin-top:0;width:auto}
@@ -610,7 +627,7 @@ function fixGame(g){
   if(!Array.isArray(g.stops)){g.stops=[];const H=g.half*60000;if(g.halfDone)g.stops.push(H);if(g.fullDone)g.stops.push(2*H);}
   if(!g.otLen)g.otLen=5;if(!g.otN)g.otN=2;if(g.ot===undefined)g.ot=null;if(g.pk===undefined)g.pk=null;
   if(g.pending===undefined)g.pending=null;
-  if(!Array.isArray(g.xt))g.xt=[];if(!Array.isArray(g.del))g.del=[];
+  if(!Array.isArray(g.xt))g.xt=[];if(!Array.isArray(g.pkOrder))g.pkOrder=[];if(!Array.isArray(g.del))g.del=[];
   ['goals','stats','saves'].forEach(k=>{const seen={};g[k].forEach(x=>{if(x&&!x.u){const b=k[0]+hashStr(JSON.stringify(x));seen[b]=(seen[b]||0)+1;x.u=b+'.'+seen[b];}});});
   return g;
 }
@@ -899,6 +916,24 @@ function blockAt(g,c){return Math.min(PL().length-1,Math.floor(regOf(g,c)/SMS(g)
 function blockRange(g,i){return i*g.sub+'–'+(i+1)*g.sub+' min';}
 const plannedFor=(g,id)=>g.plan.filter(b=>Object.values(b).includes(id)).length*g.sub;
 function scoreOf(g){const gl=g.goals||[];return {us:gl.filter(x=>x.side==='us').length,them:gl.filter(x=>x.side==='them').length};}
+/* Shootout: best of 5, ends early once one side can't catch up, then sudden death. */
+function pkState(g){const u=g.pk.us.filter(k=>k.made).length,ua=g.pk.us.length,t=g.pk.them.filter(Boolean).length,ta=g.pk.them.length;let win=null;
+  if(ua<=5&&ta<=5){if(u+(5-ua)<t)win='them';else if(t+(5-ta)<u)win='us';}
+  if(!win&&ua===ta&&ua>=5&&u!==t)win=u>t?'us':'them';
+  const first=g.pk.first||'us';const turn=first==='us'?(ua<=ta?'us':'them'):(ta<=ua?'them':'us');
+  return {u,ua,t,ta,win,turn,round:Math.min(ua,ta)+1,sd:Math.min(ua,ta)>=5};}
+/* Next kicker: the planned order first, then everyone else here; nobody kicks again until all have. */
+function nextKicker(g){const order=(g.pkOrder||[]).filter(id=>P[id]&&av(g,id));
+  const seq=order.concat(PLAYERS.filter(p=>av(g,p.id)&&!order.includes(p.id)).map(p=>p.id));if(!seq.length)return null;
+  const n={};g.pk.us.forEach(k=>n[k.id]=(n[k.id]||0)+1);const min=Math.min(...seq.map(id=>n[id]||0));
+  return seq.find(id=>(n[id]||0)===min);}
+function pkOrderHTML(g){const order=g.pkOrder||[];
+  let h=`<div class="card pkcard"><h3>Penalty kick order (if tied)</h3><p class="fine" style="margin-top:-4px">Optional. In a shootout the app calls these kickers in order. Anyone not listed follows, and nobody kicks twice until everyone has.</p>`;
+  if(order.length)h+='<ol class="pko">'+order.map((id,i)=>`<li class="${av(g,id)?'':'warn'}"><span><b>${i+1}</b> ${esc(nm(id))}${av(g,id)?'':' (out, skipped)'}</span><span class="pkob"><button data-act="pkmv" data-i="${i}" data-d="-1" ${i?'':'disabled'} aria-label="Move up">↑</button><button data-act="pkmv" data-i="${i}" data-d="1" ${i<order.length-1?'':'disabled'} aria-label="Move down">↓</button><button data-act="pkrm" data-i="${i}" aria-label="Remove">✕</button></span></li>`).join('')+'</ol>';
+  const rest=PLAYERS.filter(p=>av(g,p.id)&&!order.includes(p.id));
+  if(rest.length)h+=`<div class="fine">Tap to add ${order.length?'as kicker '+(order.length+1):'your first kicker'}:</div><div class="pkadd">${rest.map(p=>`<button data-act="pkadd" data-id="${p.id}">${esc(p.name)}</button>`).join('')}</div>`;
+  if(order.length)h+=`<button class="btn small ${armed('pkclear')?'danger-s armed':''}" data-act="pkclear" style="margin-top:8px">${armed('pkclear')?'Tap again to clear':'Clear order'}</button>`;
+  return h+'</div>';}
 function pkScore(g){return g.pk?{us:g.pk.us.filter(k=>k.made).length,them:g.pk.them.filter(Boolean).length}:{us:0,them:0};}
 
 /* ---------- Game-day info ---------- */
@@ -1278,6 +1313,14 @@ function act(a,ds){
     case 'otcancel':if(g.ot&&!g.running&&clock(g)===ends(g)[1]){g.ot=null;g.fullDone=true;save();}break;
     case 'pk':if(g.fullDone&&!g.pk){g.pk={us:[],them:[],order:[]};save();}break;
     case 'pkus':UI.pk={step:'kicker'};break;
+    case 'pkquick':{if(!g.pk||pkState(g).win)break;const id=nextKicker(g);if(!id)break;g.pk.us.push({id,made:ds.m==='1'});g.pk.order.push('us');if(ds.m==='1')playSong();
+      const st=pkState(g);say(nm(id)+(ds.m==='1'?' scores':' misses')+(st.win?'. '+(st.win==='us'?shortName():oppName())+' win the shootout '+st.u+'–'+st.t:''));save();break;}
+    case 'pkfirst':if(g.pk&&!g.pk.order.length){g.pk.first=ds.s;save();}break;
+    case 'pkedit':S.tab='plan';saveLocal();break;
+    case 'pkadd':if(!g.pkOrder.includes(ds.id)){g.pkOrder.push(ds.id);save();}break;
+    case 'pkrm':g.pkOrder.splice(+ds.i,1);save();break;
+    case 'pkmv':{const i=+ds.i,j=i+(+ds.d);if(j>=0&&j<g.pkOrder.length){const x=g.pkOrder[i];g.pkOrder[i]=g.pkOrder[j];g.pkOrder[j]=x;save();}break;}
+    case 'pkclear':if(armed('pkclear')){g.pkOrder=[];UI.arm=null;save();}else arm('pkclear');break;
     case 'pkkicker':UI.pk={step:'result',id:ds.id};break;
     case 'pkres':if(UI.pk&&UI.pk.id){g.pk.us.push({id:UI.pk.id,made:ds.m==='1'});g.pk.order.push('us');if(ds.m==='1')playSong();UI.pk=null;save();}break;
     case 'pkthem':g.pk.them.push(ds.m==='1');g.pk.order.push('them');save();break;
@@ -1467,7 +1510,15 @@ function renderScore(){
     if(ed){
       if(UI.pk&&UI.pk.step==='kicker')h+=`<div class="q">Who’s kicking?</div><div class="pkbtns">${PLAYERS.filter(p=>av(g,p.id)).map(p=>`<button class="optb" data-act="pkkicker" data-id="${p.id}">${esc(p.name)}</button>`).join('')}<button class="optb skip" data-act="pkcancel">Cancel</button></div>`;
       else if(UI.pk&&UI.pk.step==='result')h+=`<div class="q">${esc(nm(UI.pk.id))}’s kick</div><div class="pkbtns"><button class="optb ok" data-act="pkres" data-m="1">Scored</button><button class="optb" data-act="pkres" data-m="0">Missed</button><button class="optb skip" data-act="pkcancel">Cancel</button></div>`;
-      else h+=`<div class="pkbtns"><button class="optb ok" data-act="pkus">Our kick</button><button class="optb" data-act="pkthem" data-m="1">Their kick scored</button><button class="optb" data-act="pkthem" data-m="0">Their kick missed</button><button class="optb skip" data-act="pkundo">Undo last kick</button></div>`;
+      else{const st=pkState(g);
+        if(st.win)h+=`<div class="pkwin">${esc(st.win==='us'?shortName():oppName())} win the shootout ${st.u}–${st.t}</div><div class="pkbtns"><button class="optb skip" data-act="pkundo">Undo last kick</button></div>`;
+        else{const nk=nextKicker(g);const pos=nk?(g.pkOrder||[]).indexOf(nk):-1;
+          h+=`<div class="pkround">${st.sd?'Sudden death, round '+st.round:'Round '+st.round+' of 5'}</div>`;
+          if(!st.ua&&!st.ta)h+=`<div class="pkfirst"><span>Who kicks first?</span><button data-act="pkfirst" data-s="us" aria-pressed="${(g.pk.first||'us')==='us'}">${esc(shortName())}</button><button data-act="pkfirst" data-s="them" aria-pressed="${g.pk.first==='them'}">${esc(oppName())}</button></div>`;
+          h+=`<div class="pkturn ${st.turn==='us'?'now':''}"><div class="q">${st.turn==='us'?'Our turn. ':''}Next kicker: <b>${nk?esc(nm(nk)):'Pick a kicker'}</b>${pos>=0?` <span class="muted">(#${pos+1} on the list)</span>`:''}</div>
+            <div class="pkbtns">${nk?`<button class="optb ok" data-act="pkquick" data-m="1">Scored</button><button class="optb" data-act="pkquick" data-m="0">Missed</button>`:''}<button class="optb skip" data-act="pkus">Different kicker</button></div></div>
+            <div class="pkturn ${st.turn==='them'?'now':''}"><div class="q">${st.turn==='them'?'Their turn':'Their kick'}</div><div class="pkbtns"><button class="optb" data-act="pkthem" data-m="1">Scored</button><button class="optb" data-act="pkthem" data-m="0">Missed</button></div></div>
+            <div class="pkbtns"><button class="optb skip" data-act="pkundo">Undo last kick</button><button class="optb skip" data-act="pkedit">Edit kicker order</button></div>`;}}
     }
     h+='</div>';}
   const gp=UI.goal;
@@ -1628,6 +1679,7 @@ function renderPlan(d){
     const ebtn=editable?`<button class="btn small ${ed?'primary-s':''}" data-act="${ed?'planedone':'planedit'}" data-k="${i}">${ed?'Done':'Edit on field'}</button>`:'';
     h+=`<div class="blk ${state==='next'?'upnext':state}${ed?' editing':''}"><div class="bh"><b>${blockRange(g,i)}</b><span class="bhr">${ed?'<span class="pill ed">Editing</span>':''}${pill}${ebtn}</span></div>${picker}${fv?miniField(g,b,i,editable,pk,subBase):`<div class="cells">${cells}</div>`}${bench}${diff}${btn}</div>`;
   });
+  h+=pkOrderHTML(g);
   h+=`<button class="btn danger ${armed('planauto')?'armed':''}" data-act="planauto">${armed('planauto')?'Tap again to rebuild the rotation':'Rebuild the rotation from who’s here'}</button>`;
   if(validPlan(gc.plan,g.form))h+=`<button class="btn danger ${armed('planreset')?'armed':''}" data-act="planreset">${armed('planreset')?'Tap again to restore the saved plan':'Restore the saved plan'}</button>`;
   return h;
