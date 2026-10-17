@@ -439,6 +439,23 @@ details.past{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}de
 .scorebar .side .tm{color:inherit}.scorebar .side.us .tm{color:var(--crimson)}
 .sbsc{display:flex;align-items:center;gap:8px;align-self:center}
 .scorebar .pm{flex-basis:auto!important;order:0!important}
+.adjp{width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;text-align:left}
+.adjc{background:var(--surface-2);border-radius:12px;padding:10px 12px}
+.adjc h4{margin:0 0 2px;font:700 18px "Barlow Condensed",sans-serif}
+.adjc .fine{margin:0 0 6px}
+.adjl{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+.adjl>span{flex:1 1 100%;font-size:14px;color:var(--ink)}
+.adjrow .adjl>span{color:var(--ink);margin:0}
+.adjin{width:90px;min-height:38px;border:1.5px solid var(--line);border-radius:10px;padding:4px 8px;font:600 18px "Barlow",sans-serif;background:var(--surface);color:var(--ink)}
+.pbench{margin-top:8px;font-size:14px;color:var(--ink);display:flex;flex-wrap:wrap;gap:4px 6px;align-items:baseline}
+.pbench>b{font:700 13px "Barlow",sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-right:2px}
+.pbench span{background:var(--surface-2);border-radius:20px;padding:2px 9px}
+.pbench span.long{background:#fdf1dc;color:#7a3d00}
+.pbench em{font-style:normal;color:var(--muted);font-size:13px}
+.sync.saving{background:#fdf1dc;color:#7a3d00}
+.sync.saved{background:#14532d;color:#fff}
+.sync.local{background:#e3f3e7;color:#14532d}
+.savednote{font-size:13px;color:#14532d;font-weight:600}
 </style>
 </head>
 <body>
@@ -511,6 +528,7 @@ const GNAME={GK:'Keeper',DEF:'Defense',MID:'Midfield',FWD:'Forward'};
 const P9=['GK','LB','CB','RB','LM','CM','RM','LS','RS'];
 const mk=rows=>rows.map(r=>{const a=r.trim().split(/\s+/);const o={};P9.forEach((p,i)=>o[p]=a[i]);return o;});
 const G3PLAN=['sarah ainsley alexa spencer kadence vivi emmie df dm','sarah kennedy olivia emily hollis vivi emmie june dm','sarah ainsley olivia spencer kadence alexa emmie june df','dolly kennedy olivia emily kadence vivi hollis dm df','dolly ainsley alexa spencer emmie vivi hollis dm june','dolly kennedy alexa emily kadence olivia hollis df june'];
+const G3NOKAD=['sarah ainsley alexa spencer kennedy vivi emmie df dm','sarah kennedy olivia emily hollis vivi emmie june dm','sarah ainsley emily spencer olivia alexa emmie june df','dolly ainsley olivia emily kennedy vivi hollis dm df','dolly ainsley alexa spencer emmie vivi hollis dm june','dolly spencer alexa emily kennedy olivia hollis df june'];
 function cottonDefault(){return {id:'cottontown',name:'Cottontown United',short:'Cottontown',sub:'Girls 2014/15',logo:LOGO,song:true,format:'9v9',formation:'3-3-2',
   players:[
     {id:'dm',name:'Daleyza M',role:'Striker, outside mid',gr:['FWD','MID']},
@@ -559,8 +577,26 @@ function fixGame(g){
   if(!Array.isArray(g.stops)){g.stops=[];const H=g.half*60000;if(g.halfDone)g.stops.push(H);if(g.fullDone)g.stops.push(2*H);}
   if(!g.otLen)g.otLen=5;if(!g.otN)g.otN=2;if(g.ot===undefined)g.ot=null;if(g.pk===undefined)g.pk=null;
   if(g.pending===undefined)g.pending=null;
+  if(!Array.isArray(g.xt))g.xt=[];if(!Array.isArray(g.del))g.del=[];
+  ['goals','stats','saves'].forEach(k=>{const seen={};g[k].forEach(x=>{if(x&&!x.u){const b=k[0]+hashStr(JSON.stringify(x));seen[b]=(seen[b]||0)+1;x.u=b+'.'+seen[b];}});});
   return g;
 }
+function hashStr(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return (h>>>0).toString(36);}
+/* Game data (goals, stats, saves, subs, clock) is the coaches' record.
+   App updates and migrations must never replace or clear a game that has data.
+   Use hasData() before touching a game, and once() so a fix runs a single time. */
+const hasData=g=>!!g&&(g.started||g.goals.length||g.stats.length||g.saves.length||g.events.length);
+function once(c,id,fn){c.fixes=Array.isArray(c.fixes)?c.fixes:[];if(c.fixes.includes(id))return false;fn();c.fixes.push(id);return true;}
+/* Each goal, stat and save has an id (u) and removals are remembered in del,
+   so two devices saving the same game merge instead of overwriting each other. */
+function mergeGame(srv,loc){
+  if(!loc||!srv)return srv;
+  const del=new Set([...(srv.del||[]),...(loc.del||[])]);
+  ['goals','stats','saves'].forEach(k=>{const have=new Set(srv[k].map(x=>x.u));
+    srv[k]=srv[k].concat(loc[k].filter(x=>!have.has(x.u))).filter(x=>!del.has(x.u)).sort((a,b)=>a.t-b.t);});
+  srv.del=[...del];return srv;
+}
+function dropItem(g,k,i){const x=g[k].splice(i,1)[0];if(x&&x.u&&!g.del.includes(x.u))g.del.push(x.u);return x;}
 
 /* ---------- Built-in club teams ---------- */
 function team1314(){
@@ -630,6 +666,13 @@ function migrateTeam(id,ts){
     if(c.name==='Cottontown United'){c.name='Cottontown United Girls Development';ch=true;}
     const NUMS={sarah:'2',kennedy:'31',alexa:'89',kadence:'11',spencer:'30',ainsley:'12',hollis:'99',vivi:'4',june:'44',olivia:'22',dolly:'15',emmie:'13',emily:'6',dm:'26',df:'18'};
     if(c.numsVer!==2){c.players.forEach(p=>{if(NUMS[p.id])p.num=NUMS[p.id];});c.numsVer=2;ch=true;}
+    // Kadence out Sun 10/18: Game 3 and the Final. Her LM spots go to the players who had 3 blocks, so every field player has 4.
+    if(once(c,'kadence-out-2026-10-18',()=>{const was=JSON.stringify(mk(G3PLAN)),np=mk(G3NOKAD);
+      ['g3','g4'].forEach(gid=>{const gc=c.games.find(x=>x.id===gid);if(!gc)return;
+        gc.out=Array.isArray(gc.out)?gc.out:[];if(!gc.out.includes('kadence'))gc.out.push('kadence');
+        if(JSON.stringify(gc.plan)===was)gc.plan=mk(G3NOKAD);
+        const st=ts.games[gid];if(!st||hasData(st))return;
+        st.avail.kadence=false;if(JSON.stringify(st.plan)===was){st.plan=np.map(b=>Object.assign({},b));st.start=Object.assign({},st.plan[0]);}});}))ch=true;
     CU_HISTORY.forEach(([gid,dt,opp,field,us,them])=>{
       if(!c.games.some(x=>x.id===gid)){c.games.push({id:gid,title:opp.split(' ').slice(0,2).join(' '),opp,dt,field,place:'',half:30,sub:10,out:[],imported:true});ch=true;}
       if(!ts.games[gid]){ts.games[gid]=importedResult('9v9/3-3-2',30,us,them);ch=true;}});
@@ -746,12 +789,22 @@ function autoPlan(g){
 let OFF=0;const T=()=>Date.now()+OFF;
 const clock=g=>g.acc+(g.running?T()-g.runStart:0);
 const HMS=g=>g.half*60000,SMS=g=>g.sub*60000;
-function ends(g){const H=HMS(g);const e=[H,2*H];if(g.ot)for(let k=1;k<=g.ot.n;k++)e.push(2*H+k*g.ot.len*60000);return e;}
+const XT=(g,i)=>(g.xt&&g.xt[i])||0;
+const perLen=(g,i)=>i<2?HMS(g):g.ot.len*60000;
+function ends(g){const H=HMS(g);const e=[H+XT(g,0),2*H+XT(g,0)+XT(g,1)];if(g.ot){let t=e[1];for(let k=1;k<=g.ot.n;k++){t+=g.ot.len*60000+XT(g,k+1);e.push(t);}}return e;}
+function periodOf(g,c){const E=ends(g);const i=E.findIndex(e=>c<e);return i<0?E.length-1:i;}
+/* Regulation time: the game clock minus stoppage time. Sub timing and the big clock use it. */
+function regOf(g,c){const E=ends(g);let base=0,start=0;for(let i=0;i<E.length;i++){const len=perLen(g,i);if(c<E[i]||i===E.length-1)return base+Math.max(0,Math.min(c-start,len));base+=len;start=E[i];}return base;}
+function fromReg(g,r){const E=ends(g);let base=0,start=0;for(let i=0;i<E.length;i++){const len=perLen(g,i);if(r<base+len||i===E.length-1)return start+Math.max(0,Math.min(r-base,len));base+=len;start=E[i];}return start;}
+function stopIn(g,c){const i=periodOf(g,c);const E=ends(g);return Math.max(0,Math.min(c,E[i])-(i?E[i-1]:0)-perLen(g,i));}
+function tfmt(g,t){const st=stopIn(g,t);return fmt(regOf(g,t))+(st>0?' +'+fmt(st):'');}
+function tmin(g,t){const st=stopIn(g,t);const r=regOf(g,t);return st>0?Math.round(r/60000)+'+'+(Math.floor(st/60000)+1)+'′':gmin(r);}
 const totalMs=g=>{const e=ends(g);return e[e.length-1];};
 function pausedAt(g){if(g.running)return null;const c=clock(g);const e=ends(g).find(x=>x===c&&g.stops.includes(x));return e===undefined?null:e;}
-function otIndex(g,e){return Math.round((e-2*HMS(g))/(g.ot.len*60000));}
-function endLabel(g,e){const H=HMS(g);if(e===H)return 'Halftime';if(e===2*H)return g.ot?'End of regulation':'Full time';const k=otIndex(g,e);return k>=g.ot.n?'Full time':'End of OT '+k;}
-function periodName(g,c){const H=HMS(g);if(c<H)return '1st half';if(c<2*H||!g.ot)return '2nd half';return 'OT '+Math.min(g.ot.n,Math.floor((c-2*H)/(g.ot.len*60000))+1);}
+function otIndex(g,e){return ends(g).indexOf(e)-1;}
+function endLabel(g,e){const E=ends(g);if(e===E[0])return 'Halftime';if(e===E[1])return g.ot?'End of regulation':'Full time';const k=otIndex(g,e);return k>=g.ot.n?'Full time':'End of OT '+k;}
+function periodName(g,c){const i=periodOf(g,c);const n=i===0?'1st half':(i===1||!g.ot)?'2nd half':'OT '+(i-1);return n+(stopIn(g,c)>0?', added time':'');}
+const PNAME=(g,i)=>i===0?'1st half':i===1?'2nd half':'OT '+(i-1);
 function fmt(ms){ms=Math.max(0,ms);const s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
 function fmtClock(ms){ms=Math.max(0,ms);const s=Math.floor(ms/1000);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
 const mins=ms=>String(Math.round(ms/60000));
@@ -797,12 +850,12 @@ function describe(b,a,PS){
 function winK(g,c){
   if(!g.started||g.fullDone)return null;
   if(g.pending!=null)return g.pending;
-  const SUB=SMS(g),H=HMS(g);const nb=Math.floor(c/SUB)+1;
-  if(nb*SUB<2*H&&nb<PL().length&&nb*SUB-c<=60000)return nb;
+  const SUB=SMS(g),H=HMS(g);const r=regOf(g,c);if(stopIn(g,c)>0)return null;const nb=Math.floor(r/SUB)+1;
+  if(nb*SUB<2*H&&nb<PL().length&&nb*SUB-r<=60000)return nb;
   return null;
 }
 function upcoming(g,d){const k=winK(g,d.now);if(k==null||!PL()[k])return null;return {k,target:PL()[k],lines:describe(d.L,PL()[k])};}
-function blockAt(g,c){return Math.min(PL().length-1,Math.floor(c/SMS(g)));}
+function blockAt(g,c){return Math.min(PL().length-1,Math.floor(regOf(g,c)/SMS(g)));}
 function blockRange(g,i){return i*g.sub+'–'+(i+1)*g.sub+' min';}
 const plannedFor=(g,id)=>g.plan.filter(b=>Object.values(b).includes(id)).length*g.sub;
 function scoreOf(g){const gl=g.goals||[];return {us:gl.filter(x=>x.side==='us').length,them:gl.filter(x=>x.side==='them').length};}
@@ -815,13 +868,13 @@ function countdown(gc){if(!gc.dt)return '';const d=new Date(gc.dt);if(isNaN(d))r
 const mapUrl=q=>'https://maps.apple.com/?q='+encodeURIComponent(q);
 
 /* ---------- Sync ---------- */
-const SY={on:false,ok:false,first:true,team:null,lastSent:{},rev:{},inflight:{},editT:{}};
+const SY={on:false,ok:false,first:true,team:null,lastSent:{},rev:{},inflight:{},editT:{},savedAt:0,localAt:0};
 function resetSync(){SY.first=true;SY.team=S.team;SY.lastSent={};SY.rev={};SY.inflight={};SY.editT={};}
 const myCode=()=>S.auth[S.team]||'';
 const canEdit=()=>!SY.on||!!myCode();
 const isParent=()=>!canEdit();
 function save(){
-  saveLocal();
+  saveLocal();SY.localAt=Date.now();if(!SY.on)renderSync();
   if(!SY.on||!canEdit()||SY.team!==S.team||SY.first)return;
   const c=CFG();if(!c)return;
   if(JSON.stringify(c)!==SY.lastSent.cfg){SY.editT.cfg=Date.now();push('cfg');}
@@ -834,7 +887,7 @@ async function push(key){
   try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(r.status===401){delete S.auth[team];saveLocal();say('Coach code was not accepted. This device is now view only.');rerender=true;}
     else if(r.status===403){SY.lastSent[key]='';say('Creating a team on the live site needs the main coach code.');rerender=true;}
-    else if(r.ok){const j=await r.json();if(SY.team===team&&j.rev>(SY.rev[key]||0))SY.rev[key]=j.rev;SY.ok=true;}
+    else if(r.ok){const j=await r.json();if(SY.team===team&&j.rev>(SY.rev[key]||0))SY.rev[key]=j.rev;SY.ok=true;SY.savedAt=Date.now();setTimeout(renderSync,3100);}
     else{SY.ok=false;SY.lastSent[key]='';}
   }catch(e){SY.ok=false;SY.lastSent[key]='';}
   SY.inflight[key]--;SY.editT[key]=Date.now();
@@ -852,7 +905,6 @@ function applyServer(j){
     }
   }else if(first)SY.lastSent.cfg='';
   if(!ts.cfg){SY.first=false;renderAll();return;}
-  if(migrateTeam(S.team,ts))changed=true;
   useTeam();
   const games=j.games||{};
   ts.cfg.games.forEach((gc,i)=>{
@@ -862,10 +914,12 @@ function applyServer(j){
     if(!sg||!sg.game){if(first)SY.lastSent[gc.id]='';return;}
     if(busy(gc.id))return;
     if(!first&&(SY.rev[gc.id]||0)>=sg.rev)return;
-    SY.rev[gc.id]=sg.rev;const ng=fixGame(sg.game);
+    SY.rev[gc.id]=sg.rev;const sv=JSON.stringify(fixGame(sg.game));
+    const ng=first?JSON.parse(sv):mergeGame(JSON.parse(sv),ts.games[gc.id]);
     if(JSON.stringify(ng)!==JSON.stringify(ts.games[gc.id])){ts.games[gc.id]=ng;changed=true;}
-    SY.lastSent[gc.id]=JSON.stringify(ts.games[gc.id]);
+    SY.lastSent[gc.id]=sv;
   });
+  if(migrateTeam(S.team,ts))changed=true;
   SY.first=false;
   if(changed||first){useTeam();saveLocal();UI.win=undefined;renderAll();}
   if(canEdit())save();
@@ -986,13 +1040,13 @@ const GK_ONLY=['save','catch','dist','gkick'];
 function statOrder(group){const top=TOPS[group]||TOPS.MID;const rest=Object.keys(STATS).filter(k=>!top.includes(k)&&(group==='GK'||!GK_ONLY.includes(k)));return {top,rest};}
 function addStat(pos,id,k){
   const g=G();g.stats=g.stats||[];const t=Math.round(clock(g));
-  g.stats.push({t,id,k,pos});
-  if(k==='save'){g.saves.push({t,gk:id});}
+  g.stats.push({t,id,k,pos,u:uid('s')});
+  if(k==='save'){g.saves.push({t,gk:id,u:uid('v')});}
   UI.lastStat={id,k,at:Date.now()};say(STATS[k]+', '+nm(id));save();
 }
 function undoStat(){
-  const g=G();const s=(g.stats||[]).pop();if(!s){say('No stats to undo');return;}
-  if(s.k==='save'){for(let i=g.saves.length-1;i>=0;i--){if(g.saves[i].t===s.t&&g.saves[i].gk===s.id){g.saves.splice(i,1);break;}}}
+  const g=G();if(!g.stats.length){say('No stats to undo');return;}const s=dropItem(g,'stats',g.stats.length-1);
+  if(s.k==='save'){for(let i=g.saves.length-1;i>=0;i--){if(g.saves[i].t===s.t&&g.saves[i].gk===s.id){dropItem(g,'saves',i);break;}}}
   say('Removed: '+STATS[s.k]+', '+nm(s.id));save();
 }
 function statCounts(g){const c={};(g.stats||[]).forEach(s=>{c[s.id]=c[s.id]||{};c[s.id][s.k]=(c[s.id][s.k]||0)+1;});return c;}
@@ -1043,16 +1097,29 @@ function adjust(delta){
   const g=G();const E=ends(g);const tot=E[E.length-1];const c=Math.min(tot,Math.max(0,clock(g)+delta));
   const prev=g.stops.slice();g.acc=c;if(g.running)g.runStart=T();
   g.stops=E.filter(e=>e<c||(e===c&&prev.includes(e)));
-  g.halfDone=c>=HMS(g);g.fullDone=c>=tot;if(g.fullDone){g.running=false;g.pending=null;if(!g.stops.includes(tot))g.stops.push(tot);}
-  g.alerted=g.alerted.filter(i=>i*SMS(g)<=c);
-  if(g.pending!=null&&g.pending*SMS(g)>c)g.pending=null;
+  g.halfDone=c>=E[0];g.fullDone=c>=tot;if(g.fullDone){g.running=false;g.pending=null;if(!g.stops.includes(tot))g.stops.push(tot);}
+  const r=regOf(g,c);g.alerted=g.alerted.filter(i=>i*SMS(g)<=r);
+  if(g.pending!=null&&g.pending*SMS(g)>r)g.pending=null;
   save();renderAll();
+}
+/* Added (stoppage) time for period i. If that period is already over, everything after its end moves later too. */
+function addedTime(i,d){
+  const g=G();const E=ends(g);const c=clock(g);const end=E[i];if(end===undefined)return;
+  const cur=XT(g,i);let nx=Math.max(0,cur+d);
+  if(c<end||(c===end&&g.running)){const played=Math.max(0,c-(i?E[i-1]:0)-perLen(g,i));nx=Math.max(nx,played);}
+  d=nx-cur;if(!d)return;
+  while(g.xt.length<=i)g.xt.push(0);g.xt[i]=nx;
+  if(c>=end&&!(c===end&&g.running)){const lo=end+Math.min(0,d);
+    const mv=t=>t>=end?t+d:t>lo?lo:t;
+    g.events.forEach(x=>x.t=mv(x.t));['goals','stats','saves'].forEach(k=>g[k].forEach(x=>x.t=mv(x.t)));
+    g.stops=g.stops.map(x=>x>=end?x+d:x);g.acc+=d;}
+  say(PNAME(g,i)+' added time now '+fmt(nx));save();renderAll();
 }
 function undo(){
   const g=G();if(!g.events.length)return;const last=g.events[g.events.length-1].b;
   g.events=g.events.filter(e=>e.b!==last);say('Last change undone');save();renderAll();
 }
-function addGoal(o){const g=G();if(!g.started){g.started=true;g.runStart=T();}g.goals.push(o);g.goals.sort((a,b)=>a.t-b.t);}
+function addGoal(o){const g=G();if(!g.started){g.started=true;g.runStart=T();}o.u=uid('g');g.goals.push(o);g.goals.sort((a,b)=>a.t-b.t);}
 
 /* ---------- Setup actions ---------- */
 function applyForm(){
@@ -1096,10 +1163,10 @@ function act(a,ds){
     case 'stat':if(UI.sheet){addStat(UI.sheet.pos,UI.sheet.id,ds.k);UI.sheet=null;}break;
     case 'statgoal':if(UI.sheet){UI.goal={side:'us',t:Math.round(clock(g)),step:'ast',by:UI.sheet.id};UI.sheet=null;playSong();}break;
     case 'statundo':undoStat();break;
-    case 'statdel':{const k=+ds.i;if(armed('stat'+k)){const s=g.stats.splice(k,1)[0];if(s&&s.k==='save'){const i=g.saves.findIndex(x=>x.t===s.t&&x.gk===s.id);if(i>=0)g.saves.splice(i,1);}UI.arm=null;save();}else arm('stat'+k);break;}
+    case 'statdel':{const k=+ds.i;if(armed('stat'+k)){const s=dropItem(g,'stats',k);if(s&&s.k==='save'){const i=g.saves.findIndex(x=>x.t===s.t&&x.gk===s.id);if(i>=0)dropItem(g,'saves',i);}UI.arm=null;save();}else arm('stat'+k);break;}
     case 'goalminus':{const side=ds.side;const k=g.goals.map((x,i)=>x.side===side?i:-1).filter(i=>i>=0).pop();
       if(k===undefined){say('No goal to take off');break;}
-      if(armed('minus'+side)){g.goals.splice(k,1);UI.arm=null;UI.lastUs=scoreOf(g).us;say('Goal taken off');save();}else{arm('minus'+side);say('Tap − again to take off the last '+(side==='us'?shortName():oppName())+' goal');}break;}
+      if(armed('minus'+side)){dropItem(g,'goals',k);UI.arm=null;UI.lastUs=scoreOf(g).us;say('Goal taken off');save();}else{arm('minus'+side);say('Tap − again to take off the last '+(side==='us'?shortName():oppName())+' goal');}break;}
     case 'goalus':UI.goal={side:'us',t:Math.round(clock(g)),step:'by'};playSong();break;
     case 'goalthem':{const d=replay(g);addGoal({side:'them',t:Math.round(clock(g)),gk:d.L.GK||null});say(oppName()+' goal at '+fmt(clock(g)));save();break;}
     case 'endgame':
@@ -1116,11 +1183,11 @@ function act(a,ds){
       break;
     case 'goalast':if(!UI.goal)break;
       addGoal({side:'us',t:UI.goal.t,by:UI.goal.by,ast:ds.id||null});UI.lastUs=scoreOf(g).us;say('Goal! '+nm(UI.goal.by)+' at '+fmt(UI.goal.t));UI.goal=null;save();break;
-    case 'goaldel':{const k=+ds.i;if(armed('goal'+k)){g.goals.splice(k,1);UI.arm=null;say('Goal removed');save();}else arm('goal'+k);break;}
-    case 'save':{const d=replay(g);g.saves.push({t:Math.round(clock(g)),gk:d.L.GK||null});say('Save, '+nm(d.L.GK));save();break;}
-    case 'savedel':{const k=+ds.i;if(armed('save'+k)){g.saves.splice(k,1);UI.arm=null;say('Save removed');save();}else arm('save'+k);break;}
+    case 'goaldel':{const k=+ds.i;if(armed('goal'+k)){dropItem(g,'goals',k);UI.arm=null;say('Goal removed');save();}else arm('goal'+k);break;}
+    case 'save':{const d=replay(g);g.saves.push({t:Math.round(clock(g)),gk:d.L.GK||null,u:uid('v')});say('Save, '+nm(d.L.GK));save();break;}
+    case 'savedel':{const k=+ds.i;if(armed('save'+k)){dropItem(g,'saves',k);UI.arm=null;say('Save removed');save();}else arm('save'+k);break;}
     case 'ot':if(g.fullDone&&!g.ot&&!g.pk){g.ot={n:g.otN||2,len:g.otLen||5};g.fullDone=false;say('Overtime added. Tap Start overtime when ready.');save();}break;
-    case 'otcancel':if(g.ot&&!g.running&&clock(g)===2*HMS(g)){g.ot=null;g.fullDone=true;save();}break;
+    case 'otcancel':if(g.ot&&!g.running&&clock(g)===ends(g)[1]){g.ot=null;g.fullDone=true;save();}break;
     case 'pk':if(g.fullDone&&!g.pk){g.pk={us:[],them:[],order:[]};save();}break;
     case 'pkus':UI.pk={step:'kicker'};break;
     case 'pkkicker':UI.pk={step:'result',id:ds.id};break;
@@ -1134,6 +1201,10 @@ function act(a,ds){
     case 'undo':undo();return;
     case 'adjtoggle':UI.adj=!UI.adj;break;
     case 'adj':adjust(+ds.d*1000);return;
+    case 'adjset':{const el=$('adjto');const v=String(el&&el.value||'').trim();const m=v.match(/^(\d{1,3})(?::(\d{1,2}))?$/);
+      if(!m||+(m[2]||0)>59){say('Type the time like 23:40');renderHint();return;}
+      const t=fromReg(g,(+m[1]*60+(+(m[2]||0)))*1000);adjust(t-clock(g));say('Clock set to '+fmtClock(regOf(g,clock(g))));renderHint();return;}
+    case 'xt':addedTime(+ds.i,+ds.d*1000);return;
     case 'pos':tapPos(ds.p);return;
     case 'bench':tapBench(ds.id);return;
     case 'cancel':UI.sel=null;break;
@@ -1158,7 +1229,7 @@ function act(a,ds){
       if(k==='otLen')g.otLen=Math.min(15,Math.max(1,g.otLen+dl));if(k==='otN')g.otN=Math.min(2,Math.max(1,g.otN+dl));save();break;}
     case 'beep':S.beep=!S.beep;if(S.beep){unlockAudio();lastAlarm=0;alarm();}saveLocal();break;
     case 'reset':
-      if(armed('reset')){TS().games[GC().id]=freshGame(GC(),g);UI.pick=null;UI.arm=null;UI.sel=null;UI.goal=null;UI.pk=null;useTeam();say(GC().title+' reset');save();}
+      if(armed('reset')){const ng=freshGame(GC(),g);ng.del=g.del.concat(g.goals,g.stats,g.saves).map(x=>x.u||x).filter((x,i,a)=>typeof x==='string'&&a.indexOf(x)===i);TS().games[GC().id]=ng;UI.pick=null;UI.arm=null;UI.sel=null;UI.goal=null;UI.pk=null;useTeam();say(GC().title+' reset');save();}
       else arm('reset');break;
     /* setup */
     case 'fmt':{const c=CFG();if(c.format!==ds.f){c.format=ds.f;c.formation=Object.keys(FORMS[ds.f])[0];applyForm();save();}break;}
@@ -1215,7 +1286,7 @@ function status(gc){
   if(g.fullDone)return 'Final'+ss;
   if(!g.started)return whenText(gc);
   const e=pausedAt(g);if(e!=null)return endLabel(g,e)+ss;
-  return (g.running?'Live ':'Paused ')+fmt(clock(g))+ss;
+  return (g.running?'Live ':'Paused ')+tfmt(g,clock(g))+ss;
 }
 function renderBrand(){
   const c=CFG();
@@ -1228,8 +1299,8 @@ function renderGames(){
   $('games').innerHTML=`<a class="gbtn clubbtn" href="${clubLink()}"><b>‹ Club</b><small>All teams</small></a>`+CFG().games.map((gc,i)=>gc.imported&&i!==curIdx()&&!(Date.now()-new Date(gc.dt).getTime()<7*864e5)?'':`<button class="gbtn" data-act="game" data-i="${i}" aria-pressed="${i===curIdx()}"><b>${esc(gc.title)}</b><small data-lv="gstat" data-i="${i}">${esc(status(gc))}</small></button>`).join('');
 }
 function renderClock(){
-  const g=G();const c=clock(g);const H=HMS(g),SUB=SMS(g);
-  $('time').textContent=fmtClock(c);
+  const g=G();const c=clock(g);const H=HMS(g),SUB=SMS(g);const r=regOf(g,c),xs=stopIn(g,c),E=ends(g);
+  $('time').textContent=fmtClock(r)+(xs>0?' +'+fmt(xs):'');
   let per;const e=pausedAt(g);
   if(g.pk)per='Penalty kicks';
   else if(g.fullDone)per='Full time';
@@ -1241,10 +1312,11 @@ function renderClock(){
   if(isParent()){}
   else if(g.fullDone){nx.className='next';nx.innerHTML='<span>Game over</span><b>Final</b>';}
   else if(g.pending!=null){nx.className='next due';nx.innerHTML='<span>Subs due</span><b>Now</b>';}
-  else{const nb=(Math.floor(c/SUB)+1)*SUB;const tot=totalMs(g);
-    if(c>=2*H){nx.className='next';nx.innerHTML='<span>Overtime ends in</span><b>'+fmt(tot-c)+'</b>';}
-    else if(nb>=2*H){nx.className='next';nx.innerHTML='<span>Full time in</span><b>'+fmt(2*H-c)+'</b>';}
-    else{const left=nb-c;nx.className='next'+(left<=30000&&g.running?' soon':'');
+  else{const nb=(Math.floor(r/SUB)+1)*SUB;const tot=totalMs(g);const pe=E[periodOf(g,c)];
+    if(xs>0){nx.className='next';nx.innerHTML='<span>'+(pe===E[0]?'Halftime':pe===tot?'Full time':'Period ends')+' in</span><b>'+fmt(pe-c)+'</b>';}
+    else if(r>=2*H){nx.className='next';nx.innerHTML='<span>Overtime ends in</span><b>'+fmt(tot-c)+'</b>';}
+    else if(nb>=2*H){nx.className='next';nx.innerHTML='<span>Full time in</span><b>'+fmt(E[1]-c)+'</b>';}
+    else{const left=nb===H?E[0]-c:nb-r;nx.className='next'+(left<=30000&&g.running?' soon':'');
       nx.innerHTML='<span>'+(nb===H?'Halftime in':'Next sub in')+'</span><b>'+fmt(left)+'</b>';}}
   document.querySelectorAll('[data-lv="gstat"]').forEach(el=>{const gc=CFG().games[+el.dataset.i];if(gc)el.textContent=status(gc);});
 }
@@ -1255,15 +1327,20 @@ function renderCtrl(){
   if(g.running){label='Pause';cls+=' pause';}
   else if(g.fullDone)label='Final';
   else if(!g.started)label='Kick off';
-  else if(e!=null){const H=HMS(g);label=e===H?'Start 2nd half':e===2*H?'Start overtime':'Start OT '+(otIndex(g,e)+1);}
+  else if(e!=null){const E=ends(g);label=e===E[0]?'Start 2nd half':e===E[1]?'Start overtime':'Start OT '+(otIndex(g,e)+1);}
   $('ctrl').innerHTML=`<button class="btn" data-act="undo" ${g.events.length?'':'disabled'} aria-label="Undo last sub">Undo</button>
     <button class="btn" data-act="adjtoggle" aria-pressed="${UI.adj}" ${g.started?'':'disabled'}>Adjust</button>
     <button class="${cls}" data-act="play" ${g.fullDone?'disabled':''}>${label}</button>${g.started&&!g.fullDone?`<button class="btn ${armed('endgame')?'danger-s armed':''}" data-act="endgame">${armed('endgame')?'Tap to end':'End game'}</button>`:''}`;
   const ar=$('adjrow');if(!g.started)UI.adj=false;ar.hidden=!UI.adj;
-  if(UI.adj)ar.innerHTML=`<span>Nudge the clock to match the ref</span>
-    <button class="btn small" data-act="adj" data-d="-60">−1:00</button><button class="btn small" data-act="adj" data-d="-10">−0:10</button>
-    <button class="btn small" data-act="adj" data-d="10">+0:10</button><button class="btn small" data-act="adj" data-d="60">+1:00</button>
-    <button class="btn small danger-s ${armed('reset')?'armed':''}" data-act="reset">${armed('reset')?'Tap again to reset':'Reset '+esc(GC().title)}</button>`;
+  if(UI.adj&&document.activeElement&&document.activeElement.id==='adjto')return;
+  if(UI.adj){const E=ends(g);const at=E.indexOf(c);const pi=periodOf(g,c);const last=at>=0&&!g.running?at:pi;
+    let st='';for(let i=0;i<=last&&i<E.length;i++)st+=`<div class="adjl"><span>${PNAME(g,i)} added time <b>${fmt(XT(g,i))}</b></span><button class="btn small" data-act="xt" data-i="${i}" data-d="-60" ${XT(g,i)?'':'disabled'}>−1 min</button><button class="btn small" data-act="xt" data-i="${i}" data-d="60">+1 min</button></div>`;
+    ar.innerHTML=`<div class="adjp"><div class="adjc"><h4>Fix the clock</h4><p class="fine">Match our clock to the ref’s watch.</p>
+      <div class="adjl"><span>Ref stopped play, our clock is ahead</span><button class="btn small" data-act="adj" data-d="-300">−5:00</button><button class="btn small" data-act="adj" data-d="-60">−1:00</button><button class="btn small" data-act="adj" data-d="-10">−0:10</button></div>
+      <div class="adjl"><span>Our clock is behind (late start)</span><button class="btn small" data-act="adj" data-d="10">+0:10</button><button class="btn small" data-act="adj" data-d="60">+1:00</button><button class="btn small" data-act="adj" data-d="300">+5:00</button></div>
+      <div class="adjl"><span>Or set it to</span><input id="adjto" class="adjin" inputmode="numeric" placeholder="mm:ss" aria-label="Set the clock to minutes and seconds"><button class="btn small primary-s" data-act="adjset">Set clock</button></div></div>
+      <div class="adjc"><h4>Added time</h4><p class="fine">Ref played past ${g.half}:00? Add it here, even after the whistle. The players who were on get the minutes, and the next half’s subs move with it.</p>${st}</div>
+      <div class="adjc"><button class="btn small danger-s ${armed('reset')?'armed':''}" data-act="reset">${armed('reset')?'Tap again to reset':'Reset '+esc(GC().title)}</button></div></div>`;}
 }
 function renderScore(){
   const g=G();const gc=GC();const sc=scoreOf(g);const ed=canEdit();const d=replay(g);
@@ -1283,11 +1360,11 @@ function renderScore(){
   if(ed&&g.started&&!g.fullDone&&d.L.GK)row.push(`<button class="snd on" data-act="save">🧤 + Save (${esc(nm(d.L.GK))})</button>`);
   if(row.length)h+=`<div class="songrow">${row.join('')}</div>`;
   const ours=g.goals.filter(x=>x.side==='us');
-  if(ours.length&&!g.imported)h+=`<div class="scorers">${ours.map(x=>`${esc(x.by?nm(x.by):'Goal')} ${gmin(x.t)}${x.ast?' (assist '+esc(nm(x.ast))+')':''}`).join(', ')}</div>`;
+  if(ours.length&&!g.imported)h+=`<div class="scorers">${ours.map(x=>`${esc(x.by?nm(x.by):'Goal')} ${tmin(g,x.t)}${x.ast?' (assist '+esc(nm(x.ast))+')':''}`).join(', ')}</div>`;
   if(ed&&g.fullDone&&!g.pk&&sc.us===sc.them){
     h+=`<div class="pkbtns">${g.ot?'':`<button class="optb" data-act="ot">Overtime (${g.otN} × ${g.otLen} min)</button>`}<button class="optb" data-act="pk">Penalty kicks</button></div>`;
   }
-  if(ed&&g.ot&&!g.running&&!g.pk&&clock(g)===2*HMS(g))h+=`<div class="pkbtns"><button class="optb skip" data-act="otcancel">Cancel overtime</button></div>`;
+  if(ed&&g.ot&&!g.running&&!g.pk&&clock(g)===ends(g)[1])h+=`<div class="pkbtns"><button class="optb skip" data-act="otcancel">Cancel overtime</button></div>`;
   if(g.pk){const ps=pkScore(g);
     h+=`<div class="pk"><div class="tally">Penalty kicks ${ps.us}–${ps.them}</div>
       <div class="kicks"><span class="lbl">${esc(shortName())}</span>${g.pk.us.map(k=>`<span class="${k.made?'m':'x'}">${esc(nm(k.id))} ${k.made?'✓':'✗'}</span>`).join('')||'<span>No kicks yet</span>'}</div>
@@ -1402,7 +1479,7 @@ function renderPlan(d){
   const g=G();const gc=GC();const cb=g.started?blockAt(g,d.now):-1;let h='';
   const bad=new Set();PL().forEach((b,i)=>{if(i>cb)POS.forEach(p=>{if(b[p]&&!av(g,b[p]))bad.add(b[p]);});});
   if(bad.size)h+=`<div class="notice">${[...bad].map(nm).join(', ')} ${bad.size>1?'are':'is'} out but still in the plan. Tap a highlighted spot to pick someone else, or rebuild the rotation.</div>`;
-  h+=`<p class="fine" style="margin-top:0">${esc(gameNote(gc,g))}. Tap any name in an upcoming block to change who plays there.</p>`;
+  h+=`<p class="fine" style="margin-top:0">${esc(gameNote(gc,g))}. Tap any name in an upcoming block to change who plays there. Each block lists who sits; orange means sitting a second block in a row.</p>`;
   PL().forEach((b,i)=>{
     const state=i<cb?'done':i===cb?'now':(i===cb+1||(!g.started&&i===0))?'next':'';
     const editable=!g.started||i>cb;
@@ -1423,7 +1500,10 @@ function renderPlan(d){
     let btn='';
     if(!g.started)btn=`<button class="btn small" data-act="startwith" data-k="${i}">Start with this lineup</button>`;
     else if(state!=='done'&&state!=='now'&&describe(d.L,b).length)btn=`<button class="btn small" data-act="apply" data-k="${i}">Make these subs now</button>`;
-    h+=`<div class="blk ${state==='next'?'upnext':state}"><div class="bh"><b>${blockRange(g,i)}</b>${pill}</div><div class="cells">${cells}</div>${picker}${diff}${btn}</div>`;
+    const inB=new Set(POS.map(p=>b[p]).filter(Boolean)),prevB=i?new Set(POS.map(p=>PL()[i-1][p]).filter(Boolean)):null;
+    const bn=PLAYERS.filter(p=>av(g,p.id)&&!inB.has(p.id));
+    const bench=`<div class="pbench"><b>Bench</b>${bn.length?bn.map(p=>{const two=prevB&&!prevB.has(p.id)&&!pureGK(p);return `<span class="${two?'long':''}"${two?' title="Also sat the block before"':''}>${esc(p.name)}${two?' (2nd in a row)':''}</span>`;}).join(''):'<em>No one, everyone who’s here is on</em>'}</div>`;
+    h+=`<div class="blk ${state==='next'?'upnext':state}"><div class="bh"><b>${blockRange(g,i)}</b>${pill}</div><div class="cells">${cells}</div>${bench}${picker}${diff}${btn}</div>`;
   });
   h+=`<button class="btn danger ${armed('planauto')?'armed':''}" data-act="planauto">${armed('planauto')?'Tap again to rebuild the rotation':'Rebuild the rotation from who’s here'}</button>`;
   if(validPlan(gc.plan,g.form))h+=`<button class="btn danger ${armed('planreset')?'armed':''}" data-act="planreset">${armed('planreset')?'Tap again to restore the saved plan':'Restore the saved plan'}</button>`;
@@ -1475,10 +1555,10 @@ function renderLog(d){
     items.forEach(it=>{
       if(it.goal){const x=it.goal;
         const txt=x.side==='us'?'Goal '+esc(shortName())+(x.by?': '+esc(nm(x.by)):'')+(x.ast?', assist '+esc(nm(x.ast)):''):'Goal '+esc(oppName())+(x.gk?' (keeper '+esc(nm(x.gk))+')':'');
-        h+=`<li class="${x.side==='us'?'goal':''}"><div class="lt">${fmt(x.t)}</div><div class="ll"><div>${txt}${ed?`<button class="del ${armed('goal'+it.k)?'armed':''}" data-act="goaldel" data-i="${it.k}">${armed('goal'+it.k)?'Tap to remove':'Remove'}</button>`:''}</div></div></li>`;}
+        h+=`<li class="${x.side==='us'?'goal':''}"><div class="lt">${tfmt(g,x.t)}</div><div class="ll"><div>${txt}${ed?`<button class="del ${armed('goal'+it.k)?'armed':''}" data-act="goaldel" data-i="${it.k}">${armed('goal'+it.k)?'Tap to remove':'Remove'}</button>`:''}</div></div></li>`;}
       else if(it.save){const x=it.save;
-        h+=`<li><div class="lt">${fmt(x.t)}</div><div class="ll"><div>Save: ${esc(nm(x.gk))}${ed?`<button class="del ${armed('save'+it.k)?'armed':''}" data-act="savedel" data-i="${it.k}">${armed('save'+it.k)?'Tap to remove':'Remove'}</button>`:''}</div></div></li>`;}
-      else{const b=it.b;h+=`<li><div class="lt">${fmt(b.t)}</div><div class="ll">${b.lines.length?b.lines.map(l=>`<div><i>${l.p||''}</i>${esc(l.t)}</div>`).join(''):'<div class="muted">No net change</div>'}</div></li>`;}
+        h+=`<li><div class="lt">${tfmt(g,x.t)}</div><div class="ll"><div>Save: ${esc(nm(x.gk))}${ed?`<button class="del ${armed('save'+it.k)?'armed':''}" data-act="savedel" data-i="${it.k}">${armed('save'+it.k)?'Tap to remove':'Remove'}</button>`:''}</div></div></li>`;}
+      else{const b=it.b;h+=`<li><div class="lt">${tfmt(g,b.t)}</div><div class="ll">${b.lines.length?b.lines.map(l=>`<div><i>${l.p||''}</i>${esc(l.t)}</div>`).join(''):'<div class="muted">No net change</div>'}</div></li>`;}
     });
     h+='</ul>';
   }
@@ -1507,6 +1587,7 @@ function renderMinutes(){
 }
 function renderSetup(){
   const c=CFG();let h='';
+  h+=`<p class="savednote">Changes save on their own when you tap out of a box. Watch the badge above the clock: Saving… then ✓ Saved.</p>`;
   h+=`<div class="card"><h3>Team</h3>
     <label class="fld">Team name<input data-cfg="team" data-f="name" value="${esc(c.name)}"></label>
     <div class="grid2"><label class="fld">Short name for the scoreboard<input data-cfg="team" data-f="short" value="${esc(c.short||'')}"></label><label class="fld">Subtitle<input data-cfg="team" data-f="sub" value="${esc(c.sub||'')}" placeholder="e.g. Girls 2014/15"></label></div>
@@ -1575,14 +1656,14 @@ function renderStats(d){
   const rows=PLAYERS.filter(p=>av(g,p.id)).map(p=>{const x=Object.assign({},c[p.id]||{});x.g=g.goals.filter(q=>q.side==='us'&&q.by===p.id).length;x.a=g.goals.filter(q=>q.side==='us'&&q.ast===p.id).length;return {p,x};});
   h+=`<div class="rwrap"><table class="rtable"><thead><tr><th>Player</th>${cols.map(([l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>${rows.map(({p,x})=>`<tr><td class="pn">${esc(p.name)}${jn(p)}</td>${cols.map(([,f])=>{const v=f(x);return `<td class="${v?'':'z'}">${v||'·'}</td>`;}).join('')}</tr>`).join('')}</tbody></table></div>`;
   const recent=(g.stats||[]).map((s,i)=>({s,i})).slice(-12).reverse();
-  if(recent.length)h+=`<h3>Recent stats</h3><ul class="log">${recent.map(({s,i})=>`<li><div class="lt">${fmt(s.t)}</div><div class="ll"><div><i>${s.pos||''}</i>${esc(nm(s.id))}: ${esc(STATS[s.k]||s.k)}<button class="del ${armed('stat'+i)?'armed':''}" data-act="statdel" data-i="${i}">${armed('stat'+i)?'Tap to remove':'Remove'}</button></div></div></li>`).join('')}</ul>`;
+  if(recent.length)h+=`<h3>Recent stats</h3><ul class="log">${recent.map(({s,i})=>`<li><div class="lt">${tfmt(g,s.t)}</div><div class="ll"><div><i>${s.pos||''}</i>${esc(nm(s.id))}: ${esc(STATS[s.k]||s.k)}<button class="del ${armed('stat'+i)?'armed':''}" data-act="statdel" data-i="${i}">${armed('stat'+i)?'Tap to remove':'Remove'}</button></div></div></li>`).join('')}</ul>`;
   return h;
 }
 function renderGoals(d){
   const g=G();const gl=g.goals.slice().sort((a,b)=>b.t-a.t);let h='';
   if(g.pk){const ps=pkScore(g);h+=`<div class="ctx">Penalty kicks ${ps.us}–${ps.them}</div>`;}
   if(g.started)h+=teamStatsHTML(g);
-  h+=gl.length?'<ul class="log">'+gl.map(x=>`<li class="${x.side==='us'?'goal':''}"><div class="lt">${gmin(x.t)}</div><div class="ll"><div>${x.side==='us'?'Goal '+esc(shortName())+(x.by?': '+esc(nm(x.by)):'')+(x.ast?', assist '+esc(nm(x.ast)):''):'Goal '+esc(oppName())}</div></div></li>`).join('')+'</ul>'
+  h+=gl.length?'<ul class="log">'+gl.map(x=>`<li class="${x.side==='us'?'goal':''}"><div class="lt">${tmin(g,x.t)}</div><div class="ll"><div>${x.side==='us'?'Goal '+esc(shortName())+(x.by?': '+esc(nm(x.by)):'')+(x.ast?', assist '+esc(nm(x.ast)):''):'Goal '+esc(oppName())}</div></div></li>`).join('')+'</ul>'
     :'<div class="empty">No goals yet.</div>';
   h+=keeperHTML(keeperStats([{g,rep:g.started?d:null}]),'Keepers');
   return h;
@@ -1595,9 +1676,16 @@ function renderPanel(){
 }
 function renderSync(){
   const el=$('sync');if(!el)return;
-  if(!SY.on){el.hidden=true;return;}
-  el.hidden=false;el.className='sync '+(SY.ok?(canEdit()?'run':'view'):'lost');
-  el.textContent=SY.ok?(canEdit()?'Live: running games':'Live'):'Sync lost, retrying';
+  if(!SY.on){el.hidden=!SY.localAt;el.className='sync local';el.textContent='✓ Saved on this device';return;}
+  el.hidden=false;
+  if(!canEdit()){el.className='sync '+(SY.ok?'view':'lost');el.textContent=SY.ok?'Live':'Sync lost, retrying';return;}
+  const busy=Object.values(SY.inflight).some(n=>n>0);
+  const unsent=CFG()&&(JSON.stringify(CFG())!==SY.lastSent.cfg||CFG().games.some(gc=>{const st=TS().games[gc.id];return st&&JSON.stringify(st)!==SY.lastSent[gc.id];}));
+  if(!SY.ok){el.className='sync lost';el.textContent='⚠ Not saved yet, retrying';}
+  else if(busy){el.className='sync saving';el.textContent='Saving…';}
+  else if(unsent&&!SY.first){el.className='sync saving';el.textContent='Saving…';}
+  else if(Date.now()-SY.savedAt<3000){el.className='sync saved';el.textContent='✓ Saved';}
+  else{el.className='sync run';el.textContent='✓ All changes saved';}
 }
 function renderLive(){
   if(!CFG())return;const g=G();const d=replay(g);
@@ -1639,8 +1727,8 @@ function tick(){
   if(g.running){
     const E=ends(g);let c=clock(g);
     for(const e of E){if(c>=e&&!g.stops.includes(e)){g.acc=e;g.running=false;g.stops.push(e);if(e===E[0])g.halfDone=true;if(e===E[E.length-1]){g.fullDone=true;g.pending=null;}changed=true;alarm();break;}}
-    c=clock(g);const H=HMS(g),SUB=SMS(g);
-    if(!g.fullDone)for(let i=1;i*SUB<2*H;i++){if(i*SUB<=c&&!g.alerted.includes(i)){g.alerted.push(i);if(i<PL().length)g.pending=i;changed=true;alarm();}}
+    c=clock(g);const H=HMS(g),SUB=SMS(g);const r=regOf(g,c),e0=ends(g)[0];
+    if(!g.fullDone)for(let i=1;i*SUB<2*H;i++){if(i*SUB<=r&&(i*SUB!==H||c>=e0)&&!g.alerted.includes(i)){g.alerted.push(i);if(i<PL().length)g.pending=i;changed=true;alarm();}}
   }
   if(UI.msg&&Date.now()>UI.msgT){UI.msg='';renderHint();}
   if(changed){save();renderAll();return;}
