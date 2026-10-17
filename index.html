@@ -877,6 +877,25 @@ async function switchTeam(id){
   useTeam();saveLocal();renderAll();if(canEdit())save();
 }
 function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,30)||'team';}
+async function publishAll(){
+  const code=S.master||myCode();
+  if(!SY.on&&!CLUB.on){say('This only works on the live site');renderHint&&renderHint();return;}
+  if(!code){say('Unlock with the main coach code first');return;}
+  UI.pubBusy=true;try{renderAll();}catch(e){}if(CLUB.on)renderClub();
+  const post=b=>fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({code},b))});
+  let added=0,games=0,failed=0;
+  for(const id of Object.keys(S.T)){
+    const ts=S.T[id];if(!ts.cfg)continue;migrateTeam(id,ts);
+    let srv=null;try{const r=await fetch(API+'?team='+encodeURIComponent(id),{cache:'no-store'});if(r.ok)srv=await r.json();}catch(e){}
+    if(!srv){failed++;continue;}
+    if(!(srv.config&&srv.config.team)){const r=await post({kind:'config',team:id,config:ts.cfg});if(r.ok)added++;else{failed++;continue;}}
+    const have=srv.games||{};
+    for(const gc of ts.cfg.games){const st=ts.games[gc.id];if(st&&!have[gc.id]){const r=await post({kind:'game',team:id,gid:gc.id,game:st});if(r.ok)games++;}}
+  }
+  UI.pubBusy=false;
+  say(failed?`Loaded ${added} team${added===1?'':'s'}; ${failed} didn’t load. Check the code and try again.`:added?`Loaded ${added} team${added===1?'':'s'} to the live site`:'All teams were already on the live site');
+  if(CLUB.on){CLUB.msg=UI.msg;clubFetch();}else{loadTeamList();renderAll();}
+}
 async function createTeam(){
   const el=$('nt-name');const name=((el&&el.value)||UI.ntName||'').trim();
   if(!name){say('Give the new team a name');renderHint();return;}
@@ -1084,6 +1103,7 @@ function act(a,ds){
     case 'ntfmt':UI.ntFmt=ds.f;break;
     case 'teamcreate':createTeam();return;
     case 'teamgo':switchTeam(ds.id);return;
+    case 'puball':publishAll();return;
     case 'setcode':setCode();return;
     case 'copyclub':{try{navigator.clipboard.writeText(location.origin+clubLink()).then(()=>{say('Club link copied');renderHint();},()=>{});}catch(e){}break;}
     case 'copylink':{const link=parentLink();
@@ -1438,7 +1458,7 @@ function renderSetup(){
   if(SY.on)h+=`<p class="fine">Team coach code: lets another coach run this team’s games without your main code. The main code from Netlify works for every team.</p>
     <div class="codebox"><input id="newcode" type="password" autocomplete="off" placeholder="New team code (4+ characters)"><button class="btn small" data-act="setcode">Set code</button></div>`;
   h+='</div>';
-  h+=`<div class="card"><h3>Teams</h3>${teamsList().map(t=>`<div class="set"><span>${esc(t.name)}${t.id===S.team?' <span class="tag">Open now</span>':''}</span>${t.id===S.team?'':`<button class="btn small" data-act="teamgo" data-id="${t.id}">Open</button>`}</div>`).join('')}
+  h+=`<div class="card"><h3>Teams</h3>${SY.on&&S.master?`<button class="btn small primary-s" data-act="puball" ${UI.pubBusy?'disabled':''} style="margin-bottom:8px">${UI.pubBusy?'Loading teams…':'Load all teams to the live site'}</button><p class="fine" style="margin-top:0">Adds every team on this iPad to the club page in one step. Teams already on the live site aren’t changed.</p>`:''}${teamsList().map(t=>`<div class="set"><span>${esc(t.name)}${t.id===S.team?' <span class="tag">Open now</span>':''}</span>${t.id===S.team?'':`<button class="btn small" data-act="teamgo" data-id="${t.id}">Open</button>`}</div>`).join('')}
     ${UI.newTeam?`<div class="newteam"><label class="fld">New team name<input id="nt-name" placeholder="e.g. U10 Boys Blue" value="${esc(UI.ntName||'')}"></label><div class="seg">${FORMATS.map(f=>`<button data-act="ntfmt" data-f="${f}" aria-pressed="${UI.ntFmt===f}">${f}</button>`).join('')}</div>
       <div class="gacts"><button class="btn small primary-s" data-act="teamcreate">Create team</button><button class="btn small" data-act="teamnewcancel">Cancel</button></div></div>`
       :`<button class="btn small" data-act="teamnew" style="margin-top:8px">+ New team</button>`}</div>`;
@@ -1591,6 +1611,7 @@ function renderClub(){
         <div class="fine">${recOf(t)} this season${nx?`. Next: ${nx.opp?'vs '+esc(nx.opp)+', ':''}${esc(whenText(nx))}`:''}</div></a>`;}).join('')+'</div></section>';
   h+=`<section class="cs"><h2>Recent results</h2>`+(results.length?'<div class="clist">'+results.map(({t,g})=>{const s=g.s;const r=sResult(s);
     return `<a class="crow" href="${teamLink(t.id)}">${teamBadge(t,'cls')}<div class="cinfo"><b>${esc(t.name)}</b> vs ${esc(g.opp||'Opponent')}${logoImg(oppLogoOf(g),'ilg')}<div class="fine">${esc(whenText(g))}${s.scorers.length?': '+s.scorers.map(x=>esc(x.by||'Goal')).join(', '):''}</div></div><span class="res r${r}">${r}</span><span class="cfinal">${scoreStr(s)}</span></a>`;}).join('')+'</div>':'<p class="muted">No finished games yet this season.</p>')+'</section>';
+  if(CLUB.on&&S.master){h+=`<section class="cs"><h2>Coach tools</h2><button class="btn small primary-s" data-cact="puball" ${UI.pubBusy?'disabled':''}>${UI.pubBusy?'Loading teams…':'Load all teams'}</button>${CLUB.msg?`<p class="fine">${esc(CLUB.msg)}</p>`:'<p class="fine">Adds every team saved on this iPad to the club page. Teams already here aren’t changed.</p>'}</section>`;}
   if(canClubEdit){
     h+=`<section class="cs"><h2>Club settings</h2>${CLUB.edit?`<div class="card"><label class="fld">Club name<input id="club-name" value="${esc(clubName())}"></label>
       <div class="fld">Club logo<div class="logorow"><img src="${clubLogo()}" alt=""><label class="btn small filebtn">Upload<input type="file" accept="image/*" id="club-logo" hidden></label></div></div>
@@ -1611,6 +1632,7 @@ document.addEventListener('change',e=>{if(e.target&&e.target.id==='club-logo'){c
     const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(img,0,0,cv.width,cv.height);clubLogoData=cv.toDataURL('image/jpeg',0.85);
     const pv=document.querySelector('#club .logorow img');if(pv)pv.src=clubLogoData;};img.src=r.result;};r.readAsDataURL(f);}});
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-cact]');if(!b)return;const a=b.dataset.cact;
+  if(a==='puball'){publishAll();return;}
   if(a==='edit'){CLUB.edit=true;clubLogoData=null;renderClub();return;}
   if(a==='cancel'){CLUB.edit=false;renderClub();return;}
   if(a==='save'){const nmv=($('club-name')||{}).value||clubName();const club={name:nmv.trim()||clubName(),logo:clubLogoData||clubLogo()};
