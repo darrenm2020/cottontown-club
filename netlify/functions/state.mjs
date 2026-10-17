@@ -26,7 +26,7 @@ const masterCode = () =>
 const okId = (s) => typeof s === "string" && /^[a-z0-9-]{1,40}$/.test(s);
 const okGid = (s) => typeof s === "string" && /^[A-Za-z0-9_-]{1,40}$/.test(s);
 
-const POSITIVE = new Set(["sot", "kp", "pass", "tackle", "int", "clr", "blk", "cross", "drib", "fwon", "save", "catch", "dist"]);
+const POSITIVE = new Set(["sot", "kp", "pass", "tackle", "slide", "int", "clr", "blk", "cross", "drib", "fwon", "save", "catch", "dist"]);
 const okTok = (s) => typeof s === "string" && /^[A-Za-z0-9_.-]{1,40}$/.test(s);
 
 async function sha(s) {

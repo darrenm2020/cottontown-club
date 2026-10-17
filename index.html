@@ -1111,12 +1111,14 @@ function change(pairs,label){
     say((label||'Change made')+' at '+fmt(t));}
   save();
 }
-const STATS={sot:'Shot on target',soff:'Shot off target',kp:'Key pass',pass:'Good pass',bpass:'Bad pass',tackle:'Tackle won',int:'Interception',
+const STATS={sot:'Shot on target',soff:'Shot off target',kp:'Key pass',pass:'Good pass',bpass:'Bad pass',tackle:'Won the ball',slide:'Slide tackle won',int:'Interception',
   clr:'Clearance',blk:'Block',thr:'Throw-in',cross:'Cross',drib:'Beat defender',lost:'Lost ball',fwon:'Foul won',foul:'Foul',off:'Offside',corner:'Corner kick',
   save:'Save',catch:'Catch',dist:'Good distribution',gkick:'Goal kick'};
 const TOPS={GK:['save','catch','dist','gkick','clr','bpass'],DEF:['tackle','int','clr','pass','thr','blk'],MID:['pass','kp','int','sot','tackle','thr'],FWD:['sot','soff','kp','pass','drib','fwon']};
 const GK_ONLY=['save','catch','dist','gkick'];
-function statOrder(group){const top=TOPS[group]||TOPS.MID;const rest=Object.keys(STATS).filter(k=>!top.includes(k)&&(group==='GK'||!GK_ONLY.includes(k)));return {top,rest};}
+/* Slide tackles aren't allowed until 11v11, so that stat only shows for 11v11 teams. */
+const slideOK=()=>!!CFG()&&CFG().format==='11v11';
+function statOrder(group){const top=TOPS[group]||TOPS.MID;const rest=Object.keys(STATS).filter(k=>!top.includes(k)&&(group==='GK'||!GK_ONLY.includes(k))&&(k!=='slide'||slideOK()));return {top,rest};}
 function addStat(pos,id,k){
   const g=G();g.stats=g.stats||[];const t=Math.round(clock(g));
   g.stats.push({t,id,k,pos,u:uid('s')});
@@ -1130,7 +1132,7 @@ function undoStat(){
 }
 function statCounts(g,extra){const c={};(g.stats||[]).concat(extra||[]).forEach(s=>{c[s.id]=c[s.id]||{};c[s.id][s.k]=(c[s.id][s.k]||0)+1;});return c;}
 /* Parent stats: positive only, saved apart from the game record (see state.mjs). */
-const POS_STATS=['sot','kp','pass','tackle','int','clr','blk','cross','drib','fwon','save','catch','dist'];
+const POS_STATS=['sot','kp','pass','tackle','slide','int','clr','blk','cross','drib','fwon','save','catch','dist'];
 const PST={srv:{},pend:[]};
 function pstatsOf(gid){const srv=(PST.srv[S.team]||{})[gid]||[];const have=new Set(srv.map(x=>x.u));
   return srv.concat(PST.pend.filter(x=>x.team===S.team&&x.gid===gid&&!have.has(x.u)));}
@@ -1589,7 +1591,7 @@ function renderHint(){
     const t=sel.type==='pos'?`Pick who comes in at ${esc(PI[sel.pos]?PI[sel.pos].name.toLowerCase():sel.pos)}, or tap another spot to swap.`:`Tap a spot on the field to put ${esc(nm(sel.id))} in.`;
     el.className='hint on';el.innerHTML=`<span>${t}</span><button class="btn small" data-act="cancel">Cancel</button>`;
   }else if(UI.msg){el.className='hint msg';el.textContent=UI.msg;}
-  else if(UI.fieldMode==='stat'&&canEdit()){el.className='hint';el.textContent='Tracking stats: tap a player to log a pass, shot, tackle and more.';}
+  else if(UI.fieldMode==='stat'&&canEdit()){el.className='hint';el.textContent='Tracking stats: tap a player to log a pass, shot, won ball and more.';}
   else{el.className='hint';el.textContent=isParent()?(g.started?'Following live. The score, clock and lineup update on their own.':'The lineup shows here when the game kicks off.'):g.started?'Tap a player, then a bench player to sub, or another player to swap spots.':'Before kickoff, changes set the starting lineup. Nothing is logged until the clock starts.';}
 }
 function renderTabs(){
@@ -1833,7 +1835,8 @@ function teamStatsHTML(g){const t=teamShots(g);
 function renderStats(d){
   const g=G();const pl=pstatsOf(GC().id);const c=statCounts(g,pl);let h=teamStatsHTML(g);
   h+=`<p class="fine">Switch the field to <b>Track stats</b>, then tap a player to log a stat. Her position’s most common stats come first.</p>`;
-  const cols=[['Shots',x=>(x.sot||0)+(x.soff||0)+(x.g||0)],['On tgt',x=>(x.sot||0)+(x.g||0)],['G',x=>x.g||0],['A',x=>x.a||0],['KP',x=>x.kp||0],['Pass',x=>x.pass||0],['Bad',x=>x.bpass||0],['Tkl',x=>x.tackle||0],['Int',x=>x.int||0],['Clr',x=>x.clr||0],['Thr',x=>x.thr||0],['Sv',x=>x.save||0]];
+  const cols=[['Shots',x=>(x.sot||0)+(x.soff||0)+(x.g||0)],['On tgt',x=>(x.sot||0)+(x.g||0)],['G',x=>x.g||0],['A',x=>x.a||0],['KP',x=>x.kp||0],['Pass',x=>x.pass||0],['Bad',x=>x.bpass||0],['Won',x=>x.tackle||0],['Int',x=>x.int||0],['Clr',x=>x.clr||0],['Thr',x=>x.thr||0],['Sv',x=>x.save||0]];
+  if(slideOK())cols.splice(cols.findIndex(([l])=>l==='Won')+1,0,['Slide',x=>x.slide||0]);
   const rows=PLAYERS.filter(p=>av(g,p.id)).map(p=>{const x=Object.assign({},c[p.id]||{});x.g=g.goals.filter(q=>q.side==='us'&&q.by===p.id).length;x.a=g.goals.filter(q=>q.side==='us'&&q.ast===p.id).length;return {p,x};});
   h+=`<div class="rwrap"><table class="rtable"><thead><tr><th>Player</th>${cols.map(([l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>${rows.map(({p,x})=>`<tr><td class="pn">${esc(p.name)}${jn(p)}</td>${cols.map(([,f])=>{const v=f(x);return `<td class="${v?'':'z'}">${v||'·'}</td>`;}).join('')}</tr>`).join('')}</tbody></table></div>`;
   const recent=(g.stats||[]).map((s,i)=>({s,i})).slice(-12).reverse();
