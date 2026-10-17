@@ -407,6 +407,38 @@ details.past{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}de
 .livepill{margin-left:auto;background:var(--crimson);color:#fff;font:700 13px "Barlow",sans-serif;padding:2px 9px;border-radius:20px}
 .open{font-size:13px;color:var(--muted);text-align:right}
 @media (max-width:520px){.wkgrid{grid-template-columns:1fr}}
+.pm{display:inline-flex;gap:4px;align-items:center;order:5;flex-basis:100%;justify-content:center}
+.scorebar .side{flex-wrap:wrap}
+.mbtn{width:38px;min-height:44px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface-2);font:700 22px/1 "Barlow",sans-serif;color:var(--ink)}
+.mbtn.armed{background:var(--crimson);border-color:var(--crimson);color:#fff}
+.fmode{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.fmode button{border:1.5px solid var(--line);background:var(--surface);border-radius:20px;padding:6px 14px;font:700 16px "Barlow Condensed",sans-serif;color:var(--ink);min-height:38px}
+.fmode button[aria-pressed="true"]{background:var(--crimson);border-color:var(--crimson);color:#fff}
+.fmode button.undo{color:var(--muted)}
+.pitch.statmode .chip{box-shadow:0 0 0 2px #fff,0 3px 0 rgba(0,0,0,.28)}
+#sheet{position:fixed;inset:0;z-index:50;pointer-events:none}
+.sheetbg{position:absolute;inset:0;background:rgba(0,0,0,.35);pointer-events:auto}
+.sheetp{position:absolute;left:50%;bottom:calc(12px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(560px,calc(100% - 20px));max-height:80%;overflow:auto;background:var(--surface);border-radius:18px;padding:14px;box-shadow:0 10px 40px rgba(0,0,0,.4);pointer-events:auto}
+.sh{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}
+.sh b{font:700 24px "Barlow Condensed",sans-serif}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.sgrid.sm{margin-top:8px;grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+.sbtn{min-height:58px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface-2);color:var(--ink);font:700 18px/1.1 "Barlow Condensed",sans-serif;position:relative;padding:6px 8px}
+.sgrid.sm .sbtn{min-height:46px;font-size:16px}
+.sbtn i{position:absolute;top:4px;right:6px;font:600 12px "Barlow",sans-serif;color:var(--muted);font-style:normal}
+.sbtn.goal{background:var(--crimson);border-color:var(--crimson);color:#fff}
+.sheetp .more{margin-top:10px;width:100%}
+.tstats{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
+.tstats div{background:var(--surface-2);border-radius:10px;padding:8px 4px;text-align:center}
+.tstats b{display:block;font:700 26px/1 "Barlow Condensed",sans-serif}
+.tstats span{font-size:12px;color:var(--muted)}
+.rtable td.z{color:var(--line)}
+@media (max-width:520px){.tstats{grid-template-columns:repeat(3,1fr)}}
+.scorebar .side{flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;gap:6px!important;text-align:center;min-width:0}
+.scorebar .tmrow{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%}
+.scorebar .side .tm{color:inherit}.scorebar .side.us .tm{color:var(--crimson)}
+.sbsc{display:flex;align-items:center;gap:8px;align-self:center}
+.scorebar .pm{flex-basis:auto!important;order:0!important}
 </style>
 </head>
 <body>
@@ -428,6 +460,7 @@ details.past{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}de
   <div id="banner"></div>
   <main class="main">
     <section class="fieldcol">
+      <div id="fmode"></div>
       <div class="pitchbox"><div class="pitch" id="pitch"></div></div>
       <div class="hint" id="hint"></div>
     </section>
@@ -439,6 +472,7 @@ details.past{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}de
   </main>
 </div>
 <div id="club" hidden></div>
+<div id="sheet"></div>
 <script>
 (function(){
 "use strict";
@@ -519,7 +553,7 @@ function fixCfg(c){
 }
 function fixGame(g){
   if(!g.form)g.form='9v9/3-3-2';
-  ['events','goals','saves','alerted'].forEach(k=>{if(!Array.isArray(g[k]))g[k]=[];});
+  ['events','goals','saves','alerted','stats'].forEach(k=>{if(!Array.isArray(g[k]))g[k]=[];});
   if(!g.avail)g.avail={};if(!g.half)g.half=30;if(!g.sub)g.sub=10;if(!g.start)g.start={};if(!g.batch)g.batch=0;
   if(!Array.isArray(g.plan))g.plan=[];
   if(!Array.isArray(g.stops)){g.stops=[];const H=g.half*60000;if(g.halfDone)g.stops.push(H);if(g.fullDone)g.stops.push(2*H);}
@@ -594,11 +628,17 @@ function migrateTeam(id,ts){
   if(!ts||!ts.cfg)return false;let ch=false;const c=ts.cfg;
   if(id==='cottontown'){
     if(c.name==='Cottontown United'){c.name='Cottontown United Girls Development';ch=true;}
+    const NUMS={sarah:'2',kennedy:'31',alexa:'89',kadence:'11',spencer:'30',ainsley:'12',hollis:'99',vivi:'4',june:'44',olivia:'22',dolly:'15',emmie:'13',emily:'6',dm:'26',df:'18'};
+    if(c.numsVer!==2){c.players.forEach(p=>{if(NUMS[p.id])p.num=NUMS[p.id];});c.numsVer=2;ch=true;}
     CU_HISTORY.forEach(([gid,dt,opp,field,us,them])=>{
       if(!c.games.some(x=>x.id===gid)){c.games.push({id:gid,title:opp.split(' ').slice(0,2).join(' '),opp,dt,field,place:'',half:30,sub:10,out:[],imported:true});ch=true;}
       if(!ts.games[gid]){ts.games[gid]=importedResult('9v9/3-3-2',30,us,them);ch=true;}});
   }
-  if(id==='cottontown-1617-girls'){const r=c.games.find(x=>x.id==='r1');if(r&&r.opp==='BAU U10G Blau'){r.opp='Bah U10g Blau';r.title='Bah Blau';ch=true;}}
+  if(id==='cottontown-1314-girls'){const fc=c.games.find(x=>x.id==='g1');const st=ts.games.g1;
+    if(fc&&!fc.resultSet&&(!st||!st.started)){ts.games.g1=importedResult('11v11/4-4-2',35,2,3);fc.imported=true;fc.resultSet=true;ch=true;}}
+  if(id==='cottontown-1617-girls'){const r=c.games.find(x=>x.id==='r1');if(r&&r.opp==='BAU U10G Blau'){r.opp='Bah U10g Blau';r.title='Bah Blau';ch=true;}
+    const fc=c.games.find(x=>x.id==='g1');const st=ts.games.g1;
+    if(fc&&!fc.resultSet&&(!st||!st.started)){ts.games.g1=importedResult('7v7/2-3-1',25,10,0);fc.imported=true;fc.resultSet=true;ch=true;}}
   return ch;
 }
 function importedResult(form,half,us,them){
@@ -938,7 +978,28 @@ function change(pairs,label){
     say((label||'Change made')+' at '+fmt(t));}
   save();
 }
+const STATS={sot:'Shot on target',soff:'Shot off target',kp:'Key pass',pass:'Good pass',bpass:'Bad pass',tackle:'Tackle won',int:'Interception',
+  clr:'Clearance',blk:'Block',thr:'Throw-in',cross:'Cross',drib:'Beat defender',lost:'Lost ball',fwon:'Foul won',foul:'Foul',off:'Offside',corner:'Corner kick',
+  save:'Save',catch:'Catch',dist:'Good distribution',gkick:'Goal kick'};
+const TOPS={GK:['save','catch','dist','gkick','clr','bpass'],DEF:['tackle','int','clr','pass','thr','blk'],MID:['pass','kp','int','sot','tackle','thr'],FWD:['sot','soff','kp','pass','drib','fwon']};
+const GK_ONLY=['save','catch','dist','gkick'];
+function statOrder(group){const top=TOPS[group]||TOPS.MID;const rest=Object.keys(STATS).filter(k=>!top.includes(k)&&(group==='GK'||!GK_ONLY.includes(k)));return {top,rest};}
+function addStat(pos,id,k){
+  const g=G();g.stats=g.stats||[];const t=Math.round(clock(g));
+  g.stats.push({t,id,k,pos});
+  if(k==='save'){g.saves.push({t,gk:id});}
+  UI.lastStat={id,k,at:Date.now()};say(STATS[k]+', '+nm(id));save();
+}
+function undoStat(){
+  const g=G();const s=(g.stats||[]).pop();if(!s){say('No stats to undo');return;}
+  if(s.k==='save'){for(let i=g.saves.length-1;i>=0;i--){if(g.saves[i].t===s.t&&g.saves[i].gk===s.id){g.saves.splice(i,1);break;}}}
+  say('Removed: '+STATS[s.k]+', '+nm(s.id));save();
+}
+function statCounts(g){const c={};(g.stats||[]).forEach(s=>{c[s.id]=c[s.id]||{};c[s.id][s.k]=(c[s.id][s.k]||0)+1;});return c;}
+function teamShots(g){const st=g.stats||[];const goals=g.goals.filter(x=>x.side==='us').length;const sot=st.filter(s=>s.k==='sot').length,soff=st.filter(s=>s.k==='soff').length;
+  return {shots:sot+soff+goals,onT:sot+goals,goals,saves:g.saves.length,ga:g.goals.filter(x=>x.side==='them').length,corners:st.filter(s=>s.k==='corner').length};}
 function tapPos(p){
+  if(UI.fieldMode==='stat'&&canEdit()){const id=replay(G()).L[p];if(id){UI.sheet={pos:p,id,more:false};renderAll();}return;}
   const sel=UI.sel;const d=replay(G());
   if(sel&&sel.type==='pos'){
     if(sel.pos===p)UI.sel=null;
@@ -1020,7 +1081,7 @@ async function setCode(){
 }
 
 /* ---------- Click handling ---------- */
-const VIEW_OK=new Set(['game','tab','unlock','song','cancel','pickcancel','teamgo']);
+const VIEW_OK=new Set(['sheetclose','game','tab','unlock','song','cancel','pickcancel','teamgo']);
 function act(a,ds){
   if(!CFG()&&a!=='teamgo')return;
   const g=CFG()?G():null;
@@ -1029,6 +1090,16 @@ function act(a,ds){
     case 'editor':S.auth={};delete S.master;saveLocal();resetSync();SY.first=false;say('This device is now view only');break;
     case 'unlock':unlock();return;
     case 'song':S.song=!songOn();saveLocal();if(S.song){primeSong();say('Goal song on for this device');}else{try{songAudio().pause();}catch(e){}say('Goal song off for this device');}break;
+    case 'fmode':UI.fieldMode=ds.m;UI.sel=null;break;
+    case 'sheetclose':UI.sheet=null;break;
+    case 'sheetmore':if(UI.sheet)UI.sheet.more=!UI.sheet.more;break;
+    case 'stat':if(UI.sheet){addStat(UI.sheet.pos,UI.sheet.id,ds.k);UI.sheet=null;}break;
+    case 'statgoal':if(UI.sheet){UI.goal={side:'us',t:Math.round(clock(g)),step:'ast',by:UI.sheet.id};UI.sheet=null;playSong();}break;
+    case 'statundo':undoStat();break;
+    case 'statdel':{const k=+ds.i;if(armed('stat'+k)){const s=g.stats.splice(k,1)[0];if(s&&s.k==='save'){const i=g.saves.findIndex(x=>x.t===s.t&&x.gk===s.id);if(i>=0)g.saves.splice(i,1);}UI.arm=null;save();}else arm('stat'+k);break;}
+    case 'goalminus':{const side=ds.side;const k=g.goals.map((x,i)=>x.side===side?i:-1).filter(i=>i>=0).pop();
+      if(k===undefined){say('No goal to take off');break;}
+      if(armed('minus'+side)){g.goals.splice(k,1);UI.arm=null;UI.lastUs=scoreOf(g).us;say('Goal taken off');save();}else{arm('minus'+side);say('Tap − again to take off the last '+(side==='us'?shortName():oppName())+' goal');}break;}
     case 'goalus':UI.goal={side:'us',t:Math.round(clock(g)),step:'by'};playSong();break;
     case 'goalthem':{const d=replay(g);addGoal({side:'them',t:Math.round(clock(g)),gk:d.L.GK||null});say(oppName()+' goal at '+fmt(clock(g)));save();break;}
     case 'goalcancel':UI.goal=null;break;
@@ -1112,6 +1183,7 @@ function act(a,ds){
   }
   renderAll();
 }
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&UI.sheet){UI.sheet=null;renderSheet();}});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;act(b.dataset.act,b.dataset);});
 document.addEventListener('input',e=>{if(e.target&&e.target.id==='nt-name')UI.ntName=e.target.value;});
 document.addEventListener('change',e=>{
@@ -1191,9 +1263,10 @@ function renderScore(){
   const key=S.team+'/'+gc.id;
   if(UI.lastUs!==undefined&&UI.lastKey===key&&sc.us>UI.lastUs)playSong();
   UI.lastUs=sc.us;UI.lastKey=key;
-  let h=`<div class="scorebar"><div class="side us">${ed?'<button class="gbtn2" data-act="goalus">+ Goal</button>':''}${logoImg(CFG().logo,'slg')}<span class="tm">${esc(shortName())}</span><span class="num">${sc.us}</span></div>
-    <span class="dash">–</span>
-    <div class="side them"><span class="num">${sc.them}</span><span class="tm">${esc(oppName())}</span>${logoImg(oppLogoOf(gc),'slg')}${ed?'<button class="gbtn2" data-act="goalthem">+ Goal</button>':''}</div>`;
+  const pmb=side=>ed?`<span class="pm"><button class="gbtn2" data-act="goal${side}">+ Goal</button><button class="mbtn ${armed('minus'+side)?'armed':''}" data-act="goalminus" data-side="${side}" aria-label="Take off a goal">−</button></span>`:'';
+  let h=`<div class="scorebar"><div class="side us"><div class="tmrow">${logoImg(CFG().logo,'slg')}<span class="tm">${esc(shortName())}</span></div>${pmb('us')}</div>
+    <div class="sbsc"><span class="num">${sc.us}</span><span class="dash">–</span><span class="num">${sc.them}</span></div>
+    <div class="side them"><div class="tmrow">${logoImg(oppLogoOf(gc),'slg')}<span class="tm">${esc(oppName())}</span></div>${pmb('them')}</div>`;
   if(!g.started){
     const cd=countdown(gc);
     h+=`<div class="gameinfo"><span><b>${esc(whenText(gc))}</b>${gc.field?', '+esc(gc.field):''}</span>${cd?`<span class="cd" data-lv="kick">${cd}</span>`:''}${(gc.place||'')?`<a class="maplink" href="${mapUrl(gc.place)}" target="_blank" rel="noopener">Map</a>`:''}${gc.note?`<span class="muted">${esc(gc.note)}</span>`:''}</div>`;
@@ -1248,7 +1321,7 @@ const LINES=`<svg viewBox="0 0 68 100" preserveAspectRatio="none" aria-hidden="t
 </g></svg>`;
 function renderField(){
   const g=G();const d=replay(g);const sel=UI.sel;const par=isParent();const up=par?null:upcoming(g,d);
-  const pitch=$('pitch');pitch.className='pitch f'+String(g.form).split('v')[0];
+  const pitch=$('pitch');pitch.className='pitch f'+String(g.form).split('v')[0]+(UI.fieldMode==='stat'&&canEdit()?' statmode':'');
   let h=LINES;
   POS.forEach(p=>{const id=d.L[p];const pi=PI[p];
     const cls=['chip'];if(p==='GK')cls.push('gk');if(nm(id).length>6)cls.push('long');
@@ -1270,13 +1343,14 @@ function renderHint(){
     const t=sel.type==='pos'?`Pick who comes in at ${esc(PI[sel.pos]?PI[sel.pos].name.toLowerCase():sel.pos)}, or tap another spot to swap.`:`Tap a spot on the field to put ${esc(nm(sel.id))} in.`;
     el.className='hint on';el.innerHTML=`<span>${t}</span><button class="btn small" data-act="cancel">Cancel</button>`;
   }else if(UI.msg){el.className='hint msg';el.textContent=UI.msg;}
+  else if(UI.fieldMode==='stat'&&canEdit()){el.className='hint';el.textContent='Tracking stats: tap a player to log a pass, shot, tackle and more.';}
   else{el.className='hint';el.textContent=isParent()?'Following live. The score, clock and lineup update on their own.':g.started?'Tap a player, then a bench player to sub, or another player to swap spots.':'Before kickoff, changes set the starting lineup. Nothing is logged until the clock starts.';}
 }
 function renderTabs(){
   const g=G();const d=replay(g);const benchN=PLAYERS.filter(p=>av(g,p.id)&&!d.on.has(p.id)).length;
   if(isParent()&&!['bench','players','log'].includes(S.tab))S.tab='bench';
   const tabs=isParent()?[['bench','Bench',benchN],['players','Team',''],['log','Goals',g.goals.length||'']]
-    :[['bench','Bench',benchN],['plan','Plan',''],['players','Players',''],['log','Log',d.batches.length||''],['minutes','Minutes',''],['setup','Setup','']];
+    :[['bench','Bench',benchN],['plan','Plan',''],['players','Players',''],['log','Log',d.batches.length||''],['stats','Stats',''],['minutes','Minutes',''],['setup','Setup','']];
   $('tabs').innerHTML=tabs.map(([t,l,c])=>`<button class="tab" role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab===t}">${l}${c!==''?`<span class="ct">${c}</span>`:''}</button>`).join('');
 }
 function upNext(g,d,id){
@@ -1484,9 +1558,22 @@ function renderTeam(d){
   h+=`<h3>Coaches</h3><p class="fine" style="margin-top:-4px">Enter the coach code to run the game from this device.</p><div class="codebox"><input id="code" type="password" autocomplete="off" placeholder="Coach code" aria-label="Coach code"><button class="btn small" data-act="unlock">Unlock</button></div>`;
   return h;
 }
+function teamStatsHTML(g){const t=teamShots(g);
+  return `<div class="tstats"><div><b>${t.shots}</b><span>Shots</span></div><div><b>${t.onT}</b><span>On target</span></div><div><b>${t.goals}</b><span>Goals</span></div><div><b>${t.saves}</b><span>Saves</span></div><div><b>${t.saves+t.ga}</b><span>Their shots on target</span></div></div>`;}
+function renderStats(d){
+  const g=G();const c=statCounts(g);let h=teamStatsHTML(g);
+  h+=`<p class="fine">Switch the field to <b>Track stats</b>, then tap a player to log a stat. Her position’s most common stats come first.</p>`;
+  const cols=[['Shots',x=>(x.sot||0)+(x.soff||0)+(x.g||0)],['On tgt',x=>(x.sot||0)+(x.g||0)],['G',x=>x.g||0],['A',x=>x.a||0],['KP',x=>x.kp||0],['Pass',x=>x.pass||0],['Bad',x=>x.bpass||0],['Tkl',x=>x.tackle||0],['Int',x=>x.int||0],['Clr',x=>x.clr||0],['Thr',x=>x.thr||0],['Sv',x=>x.save||0]];
+  const rows=PLAYERS.filter(p=>av(g,p.id)).map(p=>{const x=Object.assign({},c[p.id]||{});x.g=g.goals.filter(q=>q.side==='us'&&q.by===p.id).length;x.a=g.goals.filter(q=>q.side==='us'&&q.ast===p.id).length;return {p,x};});
+  h+=`<div class="rwrap"><table class="rtable"><thead><tr><th>Player</th>${cols.map(([l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>${rows.map(({p,x})=>`<tr><td class="pn">${esc(p.name)}${jn(p)}</td>${cols.map(([,f])=>{const v=f(x);return `<td class="${v?'':'z'}">${v||'·'}</td>`;}).join('')}</tr>`).join('')}</tbody></table></div>`;
+  const recent=(g.stats||[]).map((s,i)=>({s,i})).slice(-12).reverse();
+  if(recent.length)h+=`<h3>Recent stats</h3><ul class="log">${recent.map(({s,i})=>`<li><div class="lt">${fmt(s.t)}</div><div class="ll"><div><i>${s.pos||''}</i>${esc(nm(s.id))}: ${esc(STATS[s.k]||s.k)}<button class="del ${armed('stat'+i)?'armed':''}" data-act="statdel" data-i="${i}">${armed('stat'+i)?'Tap to remove':'Remove'}</button></div></div></li>`).join('')}</ul>`;
+  return h;
+}
 function renderGoals(d){
   const g=G();const gl=g.goals.slice().sort((a,b)=>b.t-a.t);let h='';
   if(g.pk){const ps=pkScore(g);h+=`<div class="ctx">Penalty kicks ${ps.us}–${ps.them}</div>`;}
+  if(g.started)h+=teamStatsHTML(g);
   h+=gl.length?'<ul class="log">'+gl.map(x=>`<li class="${x.side==='us'?'goal':''}"><div class="lt">${gmin(x.t)}</div><div class="ll"><div>${x.side==='us'?'Goal '+esc(shortName())+(x.by?': '+esc(nm(x.by)):'')+(x.ast?', assist '+esc(nm(x.ast)):''):'Goal '+esc(oppName())}</div></div></li>`).join('')+'</ul>'
     :'<div class="empty">No goals yet.</div>';
   h+=keeperHTML(keeperStats([{g,rep:g.started?d:null}]),'Keepers');
@@ -1495,7 +1582,7 @@ function renderGoals(d){
 function renderPanel(){
   renderTabs();const d=replay(G());const b=$('tbody');
   if(isParent())b.innerHTML=S.tab==='players'?renderTeam(d):S.tab==='log'?renderGoals(d):renderParentBench(d);
-  else b.innerHTML=S.tab==='plan'?renderPlan(d):S.tab==='players'?renderPlayers(d):S.tab==='log'?renderLog(d):S.tab==='minutes'?renderMinutes():S.tab==='setup'?renderSetup():renderBench(d);
+  else b.innerHTML=S.tab==='plan'?renderPlan(d):S.tab==='players'?renderPlayers(d):S.tab==='log'?renderLog(d):S.tab==='stats'?renderStats(d):S.tab==='minutes'?renderMinutes():S.tab==='setup'?renderSetup():renderBench(d);
   if(UI.focus){const el=$(UI.focus);UI.focus=null;if(el){el.focus();try{el.select();}catch(e){}}}
 }
 function renderSync(){
@@ -1511,10 +1598,27 @@ function renderLive(){
   document.querySelectorAll('[data-lv="sit"]').forEach(el=>{const s=d.st[el.dataset.id];if(s)el.textContent=fmt(d.now-s.offAt);});
   document.querySelectorAll('[data-lv="kick"]').forEach(el=>{el.textContent=countdown(GC());});
 }
+function renderFmode(){
+  const el=$('fmode');if(!el)return;
+  if(!canEdit()){el.innerHTML='';UI.fieldMode='sub';return;}
+  const m=UI.fieldMode||'sub';
+  el.innerHTML=`<div class="fmode"><span>Tap a player to:</span><button data-act="fmode" data-m="sub" aria-pressed="${m==='sub'}">Sub</button><button data-act="fmode" data-m="stat" aria-pressed="${m==='stat'}">Track stats</button>${m==='stat'&&(G().stats||[]).length?`<button class="undo" data-act="statundo">Undo last</button>`:''}</div>`;
+}
+function renderSheet(){
+  const el=$('sheet');if(!el)return;const s=UI.sheet;
+  if(!s||!CFG()){el.innerHTML='';return;}
+  const grp=(PI[s.pos]&&PI[s.pos].g)||'MID';const o=statOrder(grp);
+  const c=statCounts(G())[s.id]||{};const cnt=k=>c[k]?`<i>${c[k]}</i>`:'';
+  el.innerHTML=`<div class="sheetbg" data-act="sheetclose"></div><div class="sheetp" role="dialog" aria-label="Stats for ${esc(nm(s.id))}">
+    <div class="sh"><div><b>${esc(nm(s.id))}</b>${jn(P[s.id])}<div class="fine">${esc(PI[s.pos]?PI[s.pos].name:s.pos)} at ${fmt(clock(G()))}</div></div><button class="btn small" data-act="sheetclose">Close</button></div>
+    <div class="sgrid">${o.top.map(k=>`<button class="sbtn" data-act="stat" data-k="${k}">${STATS[k]}${cnt(k)}</button>`).join('')}${grp!=='GK'?`<button class="sbtn goal" data-act="statgoal">⚽ Goal</button>`:''}</div>
+    <button class="btn small more" data-act="sheetmore">${s.more?'Fewer':'More stats'}</button>
+    ${s.more?`<div class="sgrid sm">${o.rest.map(k=>`<button class="sbtn" data-act="stat" data-k="${k}">${STATS[k]}${cnt(k)}</button>`).join('')}</div>`:''}</div>`;
+}
 function renderAll(){
   renderSync();
   if(!CFG()){$('bname').textContent='Loading…';$('bsub').textContent='';$('tbody').innerHTML='<div class="empty">Loading the team…</div>';return;}
-  useTeam();renderBrand();renderGames();renderCtrl();renderClock();renderScore();renderBanner();renderField();renderHint();
+  useTeam();renderBrand();renderGames();renderCtrl();renderClock();renderScore();renderBanner();renderFmode();renderField();renderHint();renderSheet();
   const ae=document.activeElement;const typing=ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)&&$('tbody').contains(ae)&&ae.type!=='file';
   if(!typing)renderPanel();else renderTabs();
 }
