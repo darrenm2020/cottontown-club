@@ -460,6 +460,17 @@ details.past{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}de
 button.mchip{cursor:pointer}
 .mchip.picked{border-color:#fff;box-shadow:0 0 0 3px var(--crimson)}
 .planview{margin:0 0 6px}
+.blk.editing{border-color:#e0a800;box-shadow:0 0 0 3px #ffd166}
+.blk .bh .bhr{display:flex;gap:6px;align-items:center}
+.blk .bh .btn{margin-top:0;width:auto}
+.pill.ed{background:#ffd166;color:#14181a}
+.pitch.planedit{box-shadow:0 0 0 4px #ffd166}
+.pedit{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:3;display:flex;gap:8px;align-items:center;background:#ffd166;color:#14181a;border-radius:20px;padding:4px 4px 4px 12px;font:700 15px "Barlow Condensed",sans-serif;white-space:nowrap}
+.pedit button{border:0;border-radius:16px;background:#14181a;color:#fff;font:700 14px "Barlow",sans-serif;padding:4px 12px;min-height:30px}
+.pstgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:6px}
+.pstb{min-height:58px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface-2);color:var(--ink);text-align:left;padding:6px 10px;font:inherit}
+.pstb b{font:700 18px "Barlow Condensed",sans-serif}.pstb small{display:block;color:var(--muted);font-size:12px}
+.pstb.on{border-color:#1f4e9c}
 .pickbar{background:#fff4f4;border:1.5px solid var(--crimson);border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:14px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 .pbench .pbn{background:var(--surface-2);border:1.5px solid transparent;border-radius:20px;padding:4px 10px;font:inherit;font-size:14px;color:var(--ink);min-height:32px;cursor:pointer}
 .pbench .pbn.long{background:#fdf1dc;color:#7a3d00}
@@ -608,6 +619,7 @@ function hashStr(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCode
    App updates and migrations must never replace or clear a game that has data.
    Use hasData() before touching a game, and once() so a fix runs a single time. */
 const hasData=g=>!!g&&(g.started||g.goals.length||g.stats.length||g.saves.length||g.events.length);
+const POSOF=(b,id)=>Object.keys(b).find(k=>b[k]===id);
 function once(c,id,fn){c.fixes=Array.isArray(c.fixes)?c.fixes:[];if(c.fixes.includes(id))return false;fn();c.fixes.push(id);return true;}
 /* Each goal, stat and save has an id (u) and removals are remembered in del,
    so two devices saving the same game merge instead of overwriting each other. */
@@ -695,6 +707,12 @@ function migrateTeam(id,ts){
         if(JSON.stringify(gc.plan)===was)gc.plan=mk(G3NOKAD);
         const st=ts.games[gid];if(!st||hasData(st))return;
         st.avail.kadence=false;if(JSON.stringify(st.plan)===was){st.plan=np.map(b=>Object.assign({},b));st.start=Object.assign({},st.plan[0]);}});}))ch=true;
+    // Hollis starts over Emmie in Game 2 (Sat 10/17). Swap their 0-10 and 10-20 spots so both keep the same minutes.
+    if(once(c,'hollis-starts-g2-2026-10-17',()=>{const st=ts.games.g2;if(!st||hasData(st)||st.plan.length<2)return;const b0=st.plan[0],b1=st.plan[1];
+      const p0=POSOF(b0,'emmie'),p1=POSOF(b1,'hollis');if(!p0||POSOF(b0,'hollis'))return;
+      const was=JSON.stringify(st.start)===JSON.stringify(b0);b0[p0]='hollis';
+      if(p1&&!POSOF(b1,'emmie'))b1[p1]='emmie';
+      st.avail.hollis=true;if(was)st.start=Object.assign({},b0);}))ch=true;
     CU_HISTORY.forEach(([gid,dt,opp,field,us,them])=>{
       if(!c.games.some(x=>x.id===gid)){c.games.push({id:gid,title:opp.split(' ').slice(0,2).join(' '),opp,dt,field,place:'',half:30,sub:10,out:[],imported:true});ch=true;}
       if(!ts.games[gid]){ts.games[gid]=importedResult('9v9/3-3-2',30,us,them);ch=true;}});
@@ -917,6 +935,7 @@ async function push(key){
 }
 function applyServer(j){
   if(!j||j.team!==S.team||SY.team!==S.team)return;
+  PST.srv[S.team]=j.pstats||{};
   const ts=TS();let changed=false;const first=SY.first;
   const busy=k=>SY.inflight[k]||Date.now()-(SY.editT[k]||0)<1500;
   if(j.config&&j.config.team){
@@ -1071,7 +1090,46 @@ function undoStat(){
   if(s.k==='save'){for(let i=g.saves.length-1;i>=0;i--){if(g.saves[i].t===s.t&&g.saves[i].gk===s.id){dropItem(g,'saves',i);break;}}}
   say('Removed: '+STATS[s.k]+', '+nm(s.id));save();
 }
-function statCounts(g){const c={};(g.stats||[]).forEach(s=>{c[s.id]=c[s.id]||{};c[s.id][s.k]=(c[s.id][s.k]||0)+1;});return c;}
+function statCounts(g,extra){const c={};(g.stats||[]).concat(extra||[]).forEach(s=>{c[s.id]=c[s.id]||{};c[s.id][s.k]=(c[s.id][s.k]||0)+1;});return c;}
+/* Parent stats: positive only, saved apart from the game record (see state.mjs). */
+const POS_STATS=['sot','kp','pass','tackle','int','clr','blk','cross','drib','fwon','save','catch','dist'];
+const PST={srv:{},pend:[]};
+function pstatsOf(gid){const srv=(PST.srv[S.team]||{})[gid]||[];const have=new Set(srv.map(x=>x.u));
+  return srv.concat(PST.pend.filter(x=>x.team===S.team&&x.gid===gid&&!have.has(x.u)));}
+async function addPstat(gid,st){
+  const team=S.team;PST.pend.push(Object.assign({team,gid},st));S.mine=(S.mine||[]).concat(st.u).slice(-300);saveLocal();
+  say('Thanks! '+STATS[st.k]+', '+nm(st.id));renderAll();
+  try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'pstat',team,gid,stat:st})});if(!r.ok)throw 0;}
+  catch(e){PST.pend=PST.pend.filter(x=>x.u!==st.u);say('That stat didn’t save. Check your signal and try again.');renderAll();}
+}
+async function delPstat(gid,u){
+  const team=S.team;const body={kind:'pstatdel',team,gid,u,dv:S.dv};if(canEdit()&&myCode())body.code=myCode();
+  try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw 0;
+    PST.pend=PST.pend.filter(x=>x.u!==u);const L=(PST.srv[team]||{})[gid];if(L)PST.srv[team][gid]=L.filter(x=>x.u!==u);say('Stat removed');}
+  catch(e){say('Couldn’t remove that stat. Try again.');}
+  renderAll();
+}
+function positiveHTML(g,plist){
+  const c=statCounts({stats:(g.stats||[]).filter(s=>POS_STATS.includes(s.k)&&s.k!=='save')},plist);
+  g.saves.forEach(v=>{if(v.gk){c[v.gk]=c[v.gk]||{};c[v.gk].save=(c[v.gk].save||0)+1;}});
+  g.goals.forEach(x=>{if(x.side!=='us')return;if(x.by){c[x.by]=c[x.by]||{};c[x.by].g=(c[x.by].g||0)+1;}if(x.ast){c[x.ast]=c[x.ast]||{};c[x.ast].a=(c[x.ast].a||0)+1;}});
+  const cols=[['G','g'],['A','a']].concat(POS_STATS.map(k=>[STATS[k],k])).filter(([,k])=>Object.values(c).some(x=>x[k]));
+  const rows=PLAYERS.filter(p=>c[p.id]&&cols.some(([,k])=>c[p.id][k]));
+  if(!rows.length)return '<div class="empty">No stats yet. Tap a player above to add the first one.</div>';
+  return `<div class="rwrap"><table class="rtable"><thead><tr><th>Player</th>${cols.map(([l])=>`<th>${esc(l)}</th>`).join('')}</tr></thead><tbody>${rows.map(p=>`<tr><td class="pn">${esc(p.name)}${jn(p)}</td>${cols.map(([,k])=>{const v=c[p.id][k]||0;return `<td class="${v?'':'z'}">${v||'·'}</td>`;}).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function renderParentStats(d){
+  const g=G();const gc=GC();const pl=pstatsOf(gc.id);
+  let h=`<p class="fine" style="margin-top:0">Saw something great? Tap the player and log it. Everyone following along sees these.</p>`;
+  if(!g.started)h+='<div class="ctx">You can add stats once the game kicks off.</div>';
+  else{const here=PLAYERS.filter(p=>av(g,p.id));const posOf=id=>POS.find(x=>d.L[x]===id);
+    h+='<div class="pstgrid">'+here.filter(p=>d.on.has(p.id)).concat(here.filter(p=>!d.on.has(p.id))).map(p=>{const q=posOf(p.id);
+      return `<button class="pstb ${q?'on':''}" data-act="pstatopen" data-id="${p.id}"><b>${esc(p.name)}</b>${jn(p)}<small>${q?'On at '+q:'Bench'}</small></button>`;}).join('')+'</div>';}
+  h+='<h3>Great plays</h3>'+positiveHTML(g,pl);
+  const mine=pl.filter(x=>(S.mine||[]).includes(x.u)).slice(-6).reverse();
+  if(mine.length)h+=`<h3>You added</h3><ul class="log">${mine.map(x=>`<li><div class="lt">${tfmt(g,x.t)}</div><div class="ll"><div>${esc(nm(x.id))}: ${esc(STATS[x.k])}<button class="del" data-act="pstatundo" data-u="${x.u}">Undo</button></div></div></li>`).join('')}</ul>`;
+  return h;
+}
 function teamShots(g){const st=g.stats||[];const goals=g.goals.filter(x=>x.side==='us').length;const sot=st.filter(s=>s.k==='sot').length,soff=st.filter(s=>s.k==='soff').length;
   return {shots:sot+soff+goals,onT:sot+goals,goals,saves:g.saves.length,ga:g.goals.filter(x=>x.side==='them').length,corners:st.filter(s=>s.k==='corner').length};}
 function tapPos(p){
@@ -1172,7 +1230,7 @@ async function setCode(){
 }
 
 /* ---------- Click handling ---------- */
-const VIEW_OK=new Set(['sheetclose','game','tab','unlock','song','cancel','pickcancel','teamgo']);
+const VIEW_OK=new Set(['sheetclose','game','tab','unlock','song','cancel','pickcancel','teamgo','pstatopen','pstat','pstatundo']);
 function act(a,ds){
   if(!CFG()&&a!=='teamgo')return;
   const g=CFG()?G():null;
@@ -1183,6 +1241,10 @@ function act(a,ds){
     case 'song':S.song=!songOn();saveLocal();if(S.song){primeSong();say('Goal song on for this device');}else{try{songAudio().pause();}catch(e){}say('Goal song off for this device');}break;
     case 'fmode':UI.fieldMode=ds.m;UI.sel=null;break;
     case 'sheetclose':UI.sheet=null;break;
+    case 'pstatopen':{const d=replay(g);const q=POS.find(x=>d.L[x]===ds.id);const p=P[ds.id];UI.sheet={id:ds.id,parent:true,grp:q?PI[q].g:(p&&gr(p)[0])||'MID'};break;}
+    case 'pstat':if(UI.sheet&&UI.sheet.parent&&g.started){const st={id:UI.sheet.id,k:ds.k,t:Math.round(clock(g)),u:uid('p'),dv:S.dv};UI.sheet=null;addPstat(GC().id,st);return;}break;
+    case 'pstatundo':delPstat(GC().id,ds.u);return;
+    case 'pstatdel':{const k='pst'+ds.u;if(armed(k)){UI.arm=null;delPstat(GC().id,ds.u);return;}arm(k);break;}
     case 'sheetmore':if(UI.sheet)UI.sheet.more=!UI.sheet.more;break;
     case 'stat':if(UI.sheet){addStat(UI.sheet.pos,UI.sheet.id,ds.k);UI.sheet=null;}break;
     case 'statgoal':if(UI.sheet){const by=UI.sheet.id,t=Math.round(clock(g));const o={side:'us',t,by};addGoal(o);UI.lastUs=scoreOf(g).us;UI.goal={side:'us',t,step:'ast',by,u:o.u};UI.sheet=null;playSong();say('Goal! '+nm(by)+'. Add an assist above if there was one.');save();}break;
@@ -1221,8 +1283,8 @@ function act(a,ds){
     case 'pkthem':g.pk.them.push(ds.m==='1');g.pk.order.push('them');save();break;
     case 'pkundo':{const o=g.pk.order.pop();if(o==='us')g.pk.us.pop();else if(o==='them')g.pk.them.pop();else if(!g.pk.us.length&&!g.pk.them.length)g.pk=null;UI.pk=null;save();break;}
     case 'pkcancel':UI.pk=null;break;
-    case 'game':S.cur[S.team]=+ds.i;UI.goal=null;UI.pk=null;UI.sel=null;UI.adj=false;UI.pick=null;UI.win=undefined;UI.lastUs=undefined;useTeam();saveLocal();break;
-    case 'tab':S.tab=ds.t;if(ds.t==='setup')loadTeamList();saveLocal();break;
+    case 'game':S.cur[S.team]=+ds.i;UI.planK=null;UI.goal=null;UI.pk=null;UI.sel=null;UI.adj=false;UI.pick=null;UI.win=undefined;UI.lastUs=undefined;useTeam();saveLocal();break;
+    case 'tab':S.tab=ds.t;if(ds.t!=='plan'){UI.planK=null;UI.pick=null;}if(ds.t==='setup')loadTeamList();saveLocal();break;
     case 'play':play();return;
     case 'undo':undo();return;
     case 'adjtoggle':UI.adj=!UI.adj;break;
@@ -1236,7 +1298,9 @@ function act(a,ds){
     case 'cancel':UI.sel=null;break;
     case 'injury':if(UI.sel&&UI.sel.type==='pos')UI.sel.injury=!UI.sel.injury;break;
     case 'editplan':S.tab='plan';UI.pick=null;saveLocal();break;
-    case 'cell':{const k=+ds.k,p=ds.p;const pk=UI.pick;
+    case 'planedit':{const k=+ds.k;UI.planK=UI.planK===k?null:k;UI.pick=null;break;}
+    case 'planedone':UI.planK=null;UI.pick=null;break;
+    case 'cell':{const k=+ds.k,p=ds.p;const pk=UI.pick;UI.planK=k;
       // Second tap on the same block swaps the two spots; an empty spot just takes the player.
       if(pk&&pk.k===k&&pk.p!==p){const b=g.plan[k];if(b[p])pickSet(b[p]);else{b[p]=b[pk.p];b[pk.p]=null;UI.pick=null;say(nm(b[p])+' moved to '+p);save();renderAll();}return;}
       UI.pick=(pk&&pk.k===k&&pk.p===p)?null:{k,p,all:false};break;}
@@ -1434,7 +1498,18 @@ const LINES=`<svg viewBox="0 0 68 100" preserveAspectRatio="none" aria-hidden="t
  <rect x="15" y="2" width="38" height="14" vector-effect="non-scaling-stroke"/><rect x="25" y="2" width="18" height="5" vector-effect="non-scaling-stroke"/>
  <rect x="15" y="84" width="38" height="14" vector-effect="non-scaling-stroke"/><rect x="25" y="93" width="18" height="5" vector-effect="non-scaling-stroke"/>
 </g></svg>`;
+const planEditing=()=>{if(S.tab!=='plan'||!canEdit()||UI.planK==null)return false;const g=G();if(!PL()[UI.planK])return false;return !g.started||UI.planK>blockAt(g,clock(g));};
+function renderPlanField(){
+  const g=G();const k=UI.planK;const b=PL()[k];const pk=UI.pick&&UI.pick.k===k?UI.pick:null;
+  const pitch=$('pitch');pitch.className='pitch f'+String(g.form).split('v')[0]+' planedit';
+  let h=LINES+`<div class="pedit"><span>Editing plan ${blockRange(g,k)}</span><button data-act="planedone">Done</button></div>`;
+  POS.forEach(p=>{const id=b[p];const pi=PI[p];const cls=['chip'];if(p==='GK')cls.push('gk');if(nm(id).length>6)cls.push('long');if(id&&!av(g,id))cls.push('warn');
+    if(pk&&pk.p===p)cls.push('sel');else if(pk)cls.push('target');
+    h+=`<button class="${cls.join(' ')}" style="left:${pi.x}%;top:${pi.y}%" data-act="cell" data-k="${k}" data-p="${p}" aria-label="${esc(pi.name)}: ${esc(nm(id))}"><div class="ps">${p}</div><div class="nm">${esc(nm(id))}</div></button>`;});
+  pitch.innerHTML=h;
+}
 function renderField(){
+  if(planEditing()){renderPlanField();return;}
   const g=G();const d=replay(g);const sel=UI.sel;const par=isParent();const up=par?null:upcoming(g,d);
   const pitch=$('pitch');pitch.className='pitch f'+String(g.form).split('v')[0]+(UI.fieldMode==='stat'&&canEdit()?' statmode':'');
   let h=LINES;
@@ -1454,6 +1529,7 @@ function renderField(){
 }
 function renderHint(){
   const el=$('hint');const sel=UI.sel;if(!CFG()){el.textContent='';return;}const g=G();
+  if(!sel&&!UI.msg&&planEditing()){el.className='hint on';el.innerHTML=`<span>Editing the plan for ${blockRange(g,UI.planK)}. Tap a player, then another to swap, or a bench name in that block below.</span><button class="btn small" data-act="planedone">Done</button>`;return;}
   if(sel){
     const t=sel.type==='pos'?`Pick who comes in at ${esc(PI[sel.pos]?PI[sel.pos].name.toLowerCase():sel.pos)}, or tap another spot to swap.`:`Tap a spot on the field to put ${esc(nm(sel.id))} in.`;
     el.className='hint on';el.innerHTML=`<span>${t}</span><button class="btn small" data-act="cancel">Cancel</button>`;
@@ -1463,8 +1539,8 @@ function renderHint(){
 }
 function renderTabs(){
   const g=G();const d=replay(g);const benchN=PLAYERS.filter(p=>av(g,p.id)&&!d.on.has(p.id)).length;
-  if(isParent()&&!['bench','players','log'].includes(S.tab))S.tab='bench';
-  const tabs=isParent()?[['bench','Bench',benchN],['players','Team',''],['log','Goals',g.goals.length||'']]
+  if(isParent()&&!['bench','stats','players','log'].includes(S.tab))S.tab='bench';
+  const tabs=isParent()?[['bench','Bench',benchN],['stats','Stats',''],['players','Team',''],['log','Goals',g.goals.length||'']]
     :[['bench','Bench',benchN],['plan','Plan',''],['players','Players',''],['log','Log',d.batches.length||''],['stats','Stats',''],['minutes','Minutes',''],['setup','Setup','']];
   $('tabs').innerHTML=tabs.map(([t,l,c])=>`<button class="tab" role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab===t}">${l}${c!==''?`<span class="ct">${c}</span>`:''}</button>`).join('');
 }
@@ -1548,7 +1624,9 @@ function renderPlan(d){
     const inB=new Set(POS.map(p=>b[p]).filter(Boolean)),prevB=i?new Set(POS.map(p=>PL()[i-1][p]).filter(Boolean)):null;
     const bn=PLAYERS.filter(p=>av(g,p.id)&&!inB.has(p.id));
     const bench=`<div class="pbench${pk?' go':''}"><b>Bench</b>${bn.length?bn.map(p=>{const two=prevB&&!prevB.has(p.id)&&!pureGK(p);const lbl=esc(p.name)+(two?' (2nd in a row)':'');return editable?`<button class="pbn ${two?'long':''}" data-act="pbench" data-k="${i}" data-id="${p.id}"${two?' title="Also sat the block before"':''}>${lbl}</button>`:`<span class="${two?'long':''}">${lbl}</span>`;}).join(''):'<em>No one, everyone who’s here is on</em>'}</div>`;
-    h+=`<div class="blk ${state==='next'?'upnext':state}"><div class="bh"><b>${blockRange(g,i)}</b>${pill}</div>${picker}${fv?miniField(g,b,i,editable,pk,subBase):`<div class="cells">${cells}</div>`}${bench}${diff}${btn}</div>`;
+    const ed=UI.planK===i&&editable;
+    const ebtn=editable?`<button class="btn small ${ed?'primary-s':''}" data-act="${ed?'planedone':'planedit'}" data-k="${i}">${ed?'Done':'Edit on field'}</button>`:'';
+    h+=`<div class="blk ${state==='next'?'upnext':state}${ed?' editing':''}"><div class="bh"><b>${blockRange(g,i)}</b><span class="bhr">${ed?'<span class="pill ed">Editing</span>':''}${pill}${ebtn}</span></div>${picker}${fv?miniField(g,b,i,editable,pk,subBase):`<div class="cells">${cells}</div>`}${bench}${diff}${btn}</div>`;
   });
   h+=`<button class="btn danger ${armed('planauto')?'armed':''}" data-act="planauto">${armed('planauto')?'Tap again to rebuild the rotation':'Rebuild the rotation from who’s here'}</button>`;
   if(validPlan(gc.plan,g.form))h+=`<button class="btn danger ${armed('planreset')?'armed':''}" data-act="planreset">${armed('planreset')?'Tap again to restore the saved plan':'Restore the saved plan'}</button>`;
@@ -1695,12 +1773,13 @@ function renderTeam(d){
 function teamStatsHTML(g){const t=teamShots(g);
   return `<div class="tstats"><div><b>${t.shots}</b><span>Shots</span></div><div><b>${t.onT}</b><span>On target</span></div><div><b>${t.goals}</b><span>Goals</span></div><div><b>${t.saves}</b><span>Saves</span></div><div><b>${t.saves+t.ga}</b><span>Their shots on target</span></div></div>`;}
 function renderStats(d){
-  const g=G();const c=statCounts(g);let h=teamStatsHTML(g);
+  const g=G();const pl=pstatsOf(GC().id);const c=statCounts(g,pl);let h=teamStatsHTML(g);
   h+=`<p class="fine">Switch the field to <b>Track stats</b>, then tap a player to log a stat. Her position’s most common stats come first.</p>`;
   const cols=[['Shots',x=>(x.sot||0)+(x.soff||0)+(x.g||0)],['On tgt',x=>(x.sot||0)+(x.g||0)],['G',x=>x.g||0],['A',x=>x.a||0],['KP',x=>x.kp||0],['Pass',x=>x.pass||0],['Bad',x=>x.bpass||0],['Tkl',x=>x.tackle||0],['Int',x=>x.int||0],['Clr',x=>x.clr||0],['Thr',x=>x.thr||0],['Sv',x=>x.save||0]];
   const rows=PLAYERS.filter(p=>av(g,p.id)).map(p=>{const x=Object.assign({},c[p.id]||{});x.g=g.goals.filter(q=>q.side==='us'&&q.by===p.id).length;x.a=g.goals.filter(q=>q.side==='us'&&q.ast===p.id).length;return {p,x};});
   h+=`<div class="rwrap"><table class="rtable"><thead><tr><th>Player</th>${cols.map(([l])=>`<th>${l}</th>`).join('')}</tr></thead><tbody>${rows.map(({p,x})=>`<tr><td class="pn">${esc(p.name)}${jn(p)}</td>${cols.map(([,f])=>{const v=f(x);return `<td class="${v?'':'z'}">${v||'·'}</td>`;}).join('')}</tr>`).join('')}</tbody></table></div>`;
   const recent=(g.stats||[]).map((s,i)=>({s,i})).slice(-12).reverse();
+  if(pl.length)h+=`<h3>From parents (${pl.length})</h3><p class="fine" style="margin-top:-4px">Positive stats parents added. They’re in the table above. Remove any that don’t look right.</p><ul class="log">${pl.slice(-12).reverse().map(x=>`<li><div class="lt">${tfmt(g,x.t)}</div><div class="ll"><div>${esc(nm(x.id))}: ${esc(STATS[x.k]||x.k)}<button class="del ${armed('pst'+x.u)?'armed':''}" data-act="pstatdel" data-u="${x.u}">${armed('pst'+x.u)?'Tap to remove':'Remove'}</button></div></div></li>`).join('')}</ul>`;
   if(recent.length)h+=`<h3>Recent stats</h3><ul class="log">${recent.map(({s,i})=>`<li><div class="lt">${tfmt(g,s.t)}</div><div class="ll"><div><i>${s.pos||''}</i>${esc(nm(s.id))}: ${esc(STATS[s.k]||s.k)}<button class="del ${armed('stat'+i)?'armed':''}" data-act="statdel" data-i="${i}">${armed('stat'+i)?'Tap to remove':'Remove'}</button></div></div></li>`).join('')}</ul>`;
   return h;
 }
@@ -1715,7 +1794,7 @@ function renderGoals(d){
 }
 function renderPanel(){
   renderTabs();const d=replay(G());const b=$('tbody');
-  if(isParent())b.innerHTML=S.tab==='players'?renderTeam(d):S.tab==='log'?renderGoals(d):renderParentBench(d);
+  if(isParent())b.innerHTML=S.tab==='stats'?renderParentStats(d):S.tab==='players'?renderTeam(d):S.tab==='log'?renderGoals(d):renderParentBench(d);
   else b.innerHTML=S.tab==='plan'?renderPlan(d):S.tab==='players'?renderPlayers(d):S.tab==='log'?renderLog(d):S.tab==='stats'?renderStats(d):S.tab==='minutes'?renderMinutes():S.tab==='setup'?renderSetup():renderBench(d);
   if(UI.focus){const el=$(UI.focus);UI.focus=null;if(el){el.focus();try{el.select();}catch(e){}}}
 }
@@ -1742,12 +1821,17 @@ function renderLive(){
 function renderFmode(){
   const el=$('fmode');if(!el)return;
   if(!canEdit()){el.innerHTML='';UI.fieldMode='sub';return;}
+  if(planEditing()){el.innerHTML='';return;}
   const m=UI.fieldMode||'sub';
   el.innerHTML=`<div class="fmode"><span>Tap a player to:</span><button data-act="fmode" data-m="sub" aria-pressed="${m==='sub'}">Sub</button><button data-act="fmode" data-m="stat" aria-pressed="${m==='stat'}">Track stats</button>${m==='stat'&&(G().stats||[]).length?`<button class="undo" data-act="statundo">Undo last</button>`:''}</div>`;
 }
 function renderSheet(){
   const el=$('sheet');if(!el)return;const s=UI.sheet;
   if(!s||!CFG()){el.innerHTML='';return;}
+  if(s.parent){const o=statOrder(s.grp||'MID');const ks=o.top.concat(o.rest).filter(k=>POS_STATS.includes(k));
+    el.innerHTML=`<div class="sheetbg" data-act="sheetclose"></div><div class="sheetp" role="dialog" aria-label="Great play by ${esc(nm(s.id))}">
+      <div class="sh"><div><b>${esc(nm(s.id))}</b>${jn(P[s.id])}<div class="fine">What did she do? ${fmt(regOf(G(),clock(G())))}</div></div><button class="btn small" data-act="sheetclose">Close</button></div>
+      <div class="sgrid">${ks.map(k=>`<button class="sbtn" data-act="pstat" data-k="${k}">${STATS[k]}</button>`).join('')}</div></div>`;return;}
   const grp=(PI[s.pos]&&PI[s.pos].g)||'MID';const o=statOrder(grp);
   const c=statCounts(G())[s.id]||{};const cnt=k=>c[k]?`<i>${c[k]}</i>`:'';
   el.innerHTML=`<div class="sheetbg" data-act="sheetclose"></div><div class="sheetp" role="dialog" aria-label="Stats for ${esc(nm(s.id))}">
@@ -1891,7 +1975,7 @@ function clubInit(){
 }
 
 function init(){
-  S=load();
+  S=load();if(!S.dv){S.dv=uid('d');saveLocal();}
   const QP=new URLSearchParams(location.search);
   if(QP.has('club')||!QP.has('team')){clubInit();return;}
   const qp=new URLSearchParams(location.search).get('team');

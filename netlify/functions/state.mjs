@@ -9,6 +9,9 @@ import { getStore } from "@netlify/blobs";
 //                  { kind:'game',    team, gid, game, code }
 //                  { kind:'setcode', team, newCode, code }  (sets a team-only coach code)
 //                  { kind:'club',    club:{name,logo}, code } (main code only)
+//                  { kind:'pstat',   team, gid, stat:{id,k,t,u,dv} }  (no code: parents add positive stats only)
+//                  { kind:'pstatdel', team, gid, u, dv, code? }  (the device that added it, or a coach)
+// Parent stats live in their own blob (pstats-TEAM-GID) so coach game saves never overwrite them.
 // The main code is the COACH_CODE environment variable and works for every team.
 
 const json = (body, status = 200) =>
@@ -22,6 +25,9 @@ const masterCode = () =>
 
 const okId = (s) => typeof s === "string" && /^[a-z0-9-]{1,40}$/.test(s);
 const okGid = (s) => typeof s === "string" && /^[A-Za-z0-9_-]{1,40}$/.test(s);
+
+const POSITIVE = new Set(["sot", "kp", "pass", "tackle", "int", "clr", "blk", "cross", "drib", "fwon", "save", "catch", "dist"]);
+const okTok = (s) => typeof s === "string" && /^[A-Za-z0-9_.-]{1,40}$/.test(s);
 
 async function sha(s) {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("tracker:" + s));
@@ -60,9 +66,35 @@ export default async (req) => {
     if (!masterCode()) return json({ error: "COACH_CODE is not set in Netlify" }, 500);
     const team = b && b.team ? b.team : "cottontown";
     if (!okId(team)) return json({ error: "bad team" }, 400);
+    const kind = b.kind || (b.verify ? "verify" : "");
+
+    if (kind === "pstat" || kind === "pstatdel") {
+      if (!okGid(b.gid)) return json({ error: "bad request" }, 400);
+      const cfg = await store.get("team-" + team, { type: "json" });
+      const games = (cfg && cfg.team && Array.isArray(cfg.team.games)) ? cfg.team.games : [];
+      if (!games.some((g) => g && g.id === b.gid)) return json({ error: "no such game" }, 404);
+      const key = "pstats-" + team + "-" + b.gid;
+      const list = (await store.get(key, { type: "json" })) || [];
+      if (kind === "pstat") {
+        const s = b.stat || {};
+        const players = Array.isArray(cfg.team.players) ? cfg.team.players : [];
+        if (!POSITIVE.has(s.k) || !okTok(s.id) || !players.some((p) => p && p.id === s.id) || !okTok(s.u) || !okTok(s.dv)) return json({ error: "bad stat" }, 400);
+        const t = Math.max(0, Math.min(4 * 3600000, Math.round(Number(s.t) || 0)));
+        if (list.length >= 3000) return json({ error: "too many" }, 413);
+        if (!list.some((x) => x.u === s.u)) list.push({ id: s.id, k: s.k, t, u: s.u, dv: s.dv, at: now });
+        await store.setJSON(key, list);
+        return json({ ok: true, now, n: list.length });
+      }
+      const coach = b.code ? await authLevel(store, team, b.code) : null;
+      const i = list.findIndex((x) => x.u === b.u && (coach || x.dv === b.dv));
+      if (i < 0) return json({ error: "not found" }, 404);
+      list.splice(i, 1);
+      await store.setJSON(key, list);
+      return json({ ok: true, now });
+    }
+
     const who = await authLevel(store, team, b.code);
     if (!who) return json({ error: "wrong code" }, 401);
-    const kind = b.kind || (b.verify ? "verify" : "");
 
     if (kind === "verify") return json({ ok: true, now, master: who === "master" });
 
@@ -143,12 +175,17 @@ export default async (req) => {
   if (!okId(team)) return json({ error: "bad team" }, 400);
   const config = await store.get("team-" + team, { type: "json" });
   const games = {};
+  const pstats = {};
   if (config && config.team && Array.isArray(config.team.games)) {
     await Promise.all(
       config.team.games.slice(0, 80).map(async (g) => {
         if (!g || !okGid(g.id)) return;
-        const v = await store.get("game-" + team + "-" + g.id, { type: "json" });
+        const [v, ps] = await Promise.all([
+          store.get("game-" + team + "-" + g.id, { type: "json" }),
+          g.imported ? null : store.get("pstats-" + team + "-" + g.id, { type: "json" }),
+        ]);
         if (v) games[g.id] = v;
+        if (ps && ps.length) pstats[g.id] = ps.map((x) => ({ id: x.id, k: x.k, t: x.t, u: x.u }));
       })
     );
   }
@@ -159,7 +196,7 @@ export default async (req) => {
     legacy = old.map((x) => (x && x.game ? x.game : null));
     if (!legacy.some(Boolean)) legacy = null;
   }
-  return json({ now, team, config: config || null, games, legacy });
+  return json({ now, team, config: config || null, games, pstats, legacy });
 };
 
 export const config = { path: "/api/state" };
