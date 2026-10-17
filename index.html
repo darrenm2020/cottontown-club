@@ -447,6 +447,7 @@ details.past{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}de
 .adjl>span{flex:1 1 100%;font-size:14px;color:var(--ink)}
 .adjrow .adjl>span{color:var(--ink);margin:0}
 .adjin{width:90px;min-height:38px;border:1.5px solid var(--line);border-radius:10px;padding:4px 8px;font:600 18px "Barlow",sans-serif;background:var(--surface);color:var(--ink)}
+.dlbl{margin-top:8px;font:700 13px "Barlow",sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 .pbench{margin-top:8px;font-size:14px;color:var(--ink);display:flex;flex-wrap:wrap;gap:4px 6px;align-items:baseline}
 .pbench>b{font:700 13px "Barlow",sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-right:2px}
 .pbench span{background:var(--surface-2);border-radius:20px;padding:2px 9px}
@@ -1080,10 +1081,12 @@ function applyPlan(k){
 }
 function pickSet(id){
   const g=G();const pk=UI.pick;if(!pk)return;const b=g.plan[pk.k];const old=b[pk.p];
+  const syncStart=!g.started&&pk.k===0&&POS.every(x=>(g.start[x]||null)===(b[x]||null));
   if(old!==id){
     const q=POS.find(x=>b[x]===id);if(q)b[q]=old;b[pk.p]=id;
     if(pk.all&&old){for(let j=pk.k+1;j<g.plan.length;j++){const bj=g.plan[j];const r=POS.find(x=>bj[x]===old);if(r&&!POS.some(x=>bj[x]===id))bj[r]=id;}}
-    say(nm(id)+' now planned at '+pk.p+' for '+blockRange(g,pk.k)+(pk.all?' and later':''));
+    say(nm(id)+' now planned at '+pk.p+' for '+blockRange(g,pk.k)+(pk.all?' and later':'')+(syncStart?'. Starting lineup updated':''));
+    if(syncStart)g.start=Object.assign({},b);
   }
   UI.pick=null;save();renderAll();
 }
@@ -1495,8 +1498,12 @@ function renderPlan(d){
         ${old&&i<PL().length-1?`<div class="inj"><button class="tog ${pk.all?'on':''}" data-act="pickall" aria-pressed="${pk.all}">${pk.all?'Yes':'No'}</button><span>Also replace ${esc(nm(old))} in later blocks</span></div>`:''}
         <div class="pgrid">${opts}</div><button class="btn small" data-act="pickcancel" style="margin-top:8px">Cancel</button></div>`;}
     let diff='';
-    if(state!=='done'&&state!=='now'){const lines=describe(d.L,b);
-      diff=lines.length?`<ul class="diff">${lines.map(l=>`<li class="${av(g,l.id)?'':'warn'}">${l.p?l.p+': ':''}${esc(l.t)}${av(g,l.id)?'':' (out)'}</li>`).join('')}</ul>`:'<ul class="diff"><li class="muted">Matches the field right now</li></ul>';}
+    if(state!=='done'&&state!=='now'){
+      // The first upcoming block changes from who is on the field now; later blocks change from the block before them.
+      const first=g.started?i===cb+1:i===0;const base=first?d.L:PL()[i-1];const lines=describe(base,b);
+      const lbl=first?(g.started?'Subs from who’s on now':'Different from the starting lineup'):'Subs at '+blockRange(g,i).split('–')[0]+' min';
+      diff=lines.length?`<div class="dlbl">${lbl}</div><ul class="diff">${lines.map(l=>`<li class="${av(g,l.id)?'':'warn'}">${l.p?l.p+': ':''}${esc(l.t)}${av(g,l.id)?'':' (out)'}</li>`).join('')}</ul>`
+        :`<ul class="diff"><li class="muted">${first?(g.started?'Matches who’s on now':'This is the starting lineup'):'No subs from the block before'}</li></ul>`;}
     let btn='';
     if(!g.started)btn=`<button class="btn small" data-act="startwith" data-k="${i}">Start with this lineup</button>`;
     else if(state!=='done'&&state!=='now'&&describe(d.L,b).length)btn=`<button class="btn small" data-act="apply" data-k="${i}">Make these subs now</button>`;
