@@ -1177,7 +1177,7 @@ function act(a,ds){
     case 'sheetclose':UI.sheet=null;break;
     case 'sheetmore':if(UI.sheet)UI.sheet.more=!UI.sheet.more;break;
     case 'stat':if(UI.sheet){addStat(UI.sheet.pos,UI.sheet.id,ds.k);UI.sheet=null;}break;
-    case 'statgoal':if(UI.sheet){UI.goal={side:'us',t:Math.round(clock(g)),step:'ast',by:UI.sheet.id};UI.sheet=null;playSong();}break;
+    case 'statgoal':if(UI.sheet){const by=UI.sheet.id,t=Math.round(clock(g));const o={side:'us',t,by};addGoal(o);UI.lastUs=scoreOf(g).us;UI.goal={side:'us',t,step:'ast',by,u:o.u};UI.sheet=null;playSong();say('Goal! '+nm(by)+'. Add an assist above if there was one.');save();}break;
     case 'statundo':undoStat();break;
     case 'statdel':{const k=+ds.i;if(armed('stat'+k)){const s=dropItem(g,'stats',k);if(s&&s.k==='save'){const i=g.saves.findIndex(x=>x.t===s.t&&x.gk===s.id);if(i>=0)dropItem(g,'saves',i);}UI.arm=null;save();}else arm('stat'+k);break;}
     case 'goalminus':{const side=ds.side;const k=g.goals.map((x,i)=>x.side===side?i:-1).filter(i=>i>=0).pop();
@@ -1194,11 +1194,13 @@ function act(a,ds){
     case 'reopen':if(armed('reopen')){g.fullDone=false;UI.arm=null;say('Game reopened');save();}else arm('reopen');break;
     case 'goalcancel':UI.goal=null;break;
     case 'goalby':if(!UI.goal)break;
-      if(ds.id){UI.goal.by=ds.id;UI.goal.step='ast';}
+      if(ds.id){const o={side:'us',t:UI.goal.t,by:ds.id};addGoal(o);UI.lastUs=scoreOf(g).us;UI.goal.by=ds.id;UI.goal.u=o.u;UI.goal.step='ast';say('Goal! '+nm(ds.id)+' at '+fmt(UI.goal.t));save();}
       else{addGoal({side:'us',t:UI.goal.t});UI.lastUs=scoreOf(g).us;say('Goal '+shortName()+'!');UI.goal=null;save();}
       break;
     case 'goalast':if(!UI.goal)break;
-      addGoal({side:'us',t:UI.goal.t,by:UI.goal.by,ast:ds.id||null});UI.lastUs=scoreOf(g).us;say('Goal! '+nm(UI.goal.by)+' at '+fmt(UI.goal.t));UI.goal=null;save();break;
+      {const x=UI.goal.u&&g.goals.find(q=>q.u===UI.goal.u);
+      if(UI.goal.u){if(x&&ds.id){x.ast=ds.id;say('Assist: '+nm(ds.id));}}else addGoal({side:'us',t:UI.goal.t,by:UI.goal.by,ast:ds.id||null});
+      UI.lastUs=scoreOf(g).us;UI.goal=null;save();break;}
     case 'goaldel':{const k=+ds.i;if(armed('goal'+k)){dropItem(g,'goals',k);UI.arm=null;say('Goal removed');save();}else arm('goal'+k);break;}
     case 'save':{const d=replay(g);g.saves.push({t:Math.round(clock(g)),gk:d.L.GK||null,u:uid('v')});say('Save, '+nm(d.L.GK));save();break;}
     case 'savedel':{const k=+ds.i;if(armed('save'+k)){dropItem(g,'saves',k);UI.arm=null;say('Save removed');save();}else arm('save'+k);break;}
