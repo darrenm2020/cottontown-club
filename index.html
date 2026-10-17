@@ -447,6 +447,19 @@ details.past{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}de
 .adjl>span{flex:1 1 100%;font-size:14px;color:var(--ink)}
 .adjrow .adjl>span{color:var(--ink);margin:0}
 .adjin{width:90px;min-height:38px;border:1.5px solid var(--line);border-radius:10px;padding:4px 8px;font:600 18px "Barlow",sans-serif;background:var(--surface);color:var(--ink)}
+.mpitch{position:relative;width:min(100%,460px);margin:2px auto 0;aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:repeating-linear-gradient(180deg,var(--pitch) 0 10%,var(--pitch-2) 10% 20%)}
+.mlines{position:absolute;left:0;right:0;top:-13.95%;height:116.3%}
+.mlines svg{width:100%;height:100%;display:block}
+.mchip{position:absolute;transform:translate(-50%,-50%);width:28%;background:#1f4e9c;color:#fff;border-radius:8px;padding:3px 4px 4px;text-align:center;border:2px solid transparent;box-shadow:0 2px 0 rgba(0,0,0,.25);font:inherit}
+.mpitch.f11 .mchip{width:23%}
+.mchip .mps{display:block;font:700 11px/1 "Barlow Condensed",sans-serif;color:#bcd3ff;letter-spacing:.03em}
+.mchip .mnm{display:block;font:700 16px/1.1 "Barlow Condensed","Arial Narrow",sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mchip.gk{background:#f3d35b;color:#14181a}.mchip.gk .mps{color:#9d0208}
+.mchip.warn{background:#ffe1b8;color:#7a3d00}.mchip.warn .mps{color:#9d0208}
+.mchip.new{box-shadow:0 0 0 3px #4ade80,0 2px 0 rgba(0,0,0,.25)}
+button.mchip{cursor:pointer}
+.mchip.picked{border-color:#fff;box-shadow:0 0 0 3px var(--crimson)}
+.planview{margin:0 0 6px}
 .dlbl{margin-top:8px;font:700 13px "Barlow",sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 .pbench{margin-top:8px;font-size:14px;color:var(--ink);display:flex;flex-wrap:wrap;gap:4px 6px;align-items:baseline}
 .pbench>b{font:700 13px "Barlow",sans-serif;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-right:2px}
@@ -1217,6 +1230,7 @@ function act(a,ds){
     case 'pickall':if(UI.pick)UI.pick.all=!UI.pick.all;break;
     case 'pickcancel':UI.pick=null;break;
     case 'pickset':pickSet(ds.id);return;
+    case 'planview':S.planView=ds.v;saveLocal();break;
     case 'planreset':
       if(armed('planreset')){const gc=GC();g.plan=validPlan(gc.plan,g.form)?gc.plan.map(b=>Object.assign({},b)):autoPlan(g);UI.arm=null;UI.pick=null;say('Saved plan restored');save();}
       else arm('planreset');break;
@@ -1478,11 +1492,22 @@ function renderBench(d){
   if(out.length)h+=`<h3>Not here or out</h3><div class="outlist">${out.map(p=>`<span>${esc(p.name)}</span>`).join('')}</div><p class="fine">Change who’s available on the Players tab.</p>`;
   return h;
 }
+function miniField(g,b,i,editable,pk,base){
+  let h=`<div class="mpitch f${String(g.form).split('v')[0]}"><div class="mlines">${LINES}</div>`;
+  formOf(g.form).forEach(pi=>{const p=pi.id,id=b[p];const cls=['mchip'];if(p==='GK')cls.push('gk');
+    if(id&&!av(g,id))cls.push('warn');if(base&&id&&!POS.some(x=>base[x]===id))cls.push('new');if(pk&&pk.p===p)cls.push('picked');
+    const st=`left:${pi.x}%;top:${((pi.y-12)/86*100).toFixed(1)}%`;
+    const inner=`<span class="mps">${p}</span><span class="mnm">${esc(id?nm(id):'Empty')}${id&&!av(g,id)?' (out)':''}</span>`;
+    h+=editable?`<button class="${cls.join(' ')}" style="${st}" data-act="cell" data-k="${i}" data-p="${p}" aria-label="${esc(pi.name)}: ${esc(nm(id))}">${inner}</button>`:`<div class="${cls.join(' ')}" style="${st}">${inner}</div>`;});
+  return h+'</div>';
+}
 function renderPlan(d){
   const g=G();const gc=GC();const cb=g.started?blockAt(g,d.now):-1;let h='';
   const bad=new Set();PL().forEach((b,i)=>{if(i>cb)POS.forEach(p=>{if(b[p]&&!av(g,b[p]))bad.add(b[p]);});});
   if(bad.size)h+=`<div class="notice">${[...bad].map(nm).join(', ')} ${bad.size>1?'are':'is'} out but still in the plan. Tap a highlighted spot to pick someone else, or rebuild the rotation.</div>`;
   h+=`<p class="fine" style="margin-top:0">${esc(gameNote(gc,g))}. Tap any name in an upcoming block to change who plays there. Each block lists who sits; orange means sitting a second block in a row.</p>`;
+  const fv=S.planView!=='list';
+  h+=`<div class="seg planview"><button data-act="planview" data-v="field" aria-pressed="${fv}">Field</button><button data-act="planview" data-v="list" aria-pressed="${!fv}">List</button></div>${fv?'<p class="fine">Tap a player on a field to change who plays there. A green ring means she comes in at that block.</p>':''}`;
   PL().forEach((b,i)=>{
     const state=i<cb?'done':i===cb?'now':(i===cb+1||(!g.started&&i===0))?'next':'';
     const editable=!g.started||i>cb;
@@ -1498,6 +1523,7 @@ function renderPlan(d){
         ${old&&i<PL().length-1?`<div class="inj"><button class="tog ${pk.all?'on':''}" data-act="pickall" aria-pressed="${pk.all}">${pk.all?'Yes':'No'}</button><span>Also replace ${esc(nm(old))} in later blocks</span></div>`:''}
         <div class="pgrid">${opts}</div><button class="btn small" data-act="pickcancel" style="margin-top:8px">Cancel</button></div>`;}
     let diff='';
+    const subBase=state!=='done'&&state!=='now'?((g.started?i===cb+1:i===0)?d.L:PL()[i-1]):null;
     if(state!=='done'&&state!=='now'){
       // The first upcoming block changes from who is on the field now; later blocks change from the block before them.
       const first=g.started?i===cb+1:i===0;const base=first?d.L:PL()[i-1];const lines=describe(base,b);
@@ -1510,7 +1536,7 @@ function renderPlan(d){
     const inB=new Set(POS.map(p=>b[p]).filter(Boolean)),prevB=i?new Set(POS.map(p=>PL()[i-1][p]).filter(Boolean)):null;
     const bn=PLAYERS.filter(p=>av(g,p.id)&&!inB.has(p.id));
     const bench=`<div class="pbench"><b>Bench</b>${bn.length?bn.map(p=>{const two=prevB&&!prevB.has(p.id)&&!pureGK(p);return `<span class="${two?'long':''}"${two?' title="Also sat the block before"':''}>${esc(p.name)}${two?' (2nd in a row)':''}</span>`;}).join(''):'<em>No one, everyone who’s here is on</em>'}</div>`;
-    h+=`<div class="blk ${state==='next'?'upnext':state}"><div class="bh"><b>${blockRange(g,i)}</b>${pill}</div><div class="cells">${cells}</div>${bench}${picker}${diff}${btn}</div>`;
+    h+=`<div class="blk ${state==='next'?'upnext':state}"><div class="bh"><b>${blockRange(g,i)}</b>${pill}</div>${fv?miniField(g,b,i,editable,pk,subBase):`<div class="cells">${cells}</div>`}${bench}${picker}${diff}${btn}</div>`;
   });
   h+=`<button class="btn danger ${armed('planauto')?'armed':''}" data-act="planauto">${armed('planauto')?'Tap again to rebuild the rotation':'Rebuild the rotation from who’s here'}</button>`;
   if(validPlan(gc.plan,g.form))h+=`<button class="btn danger ${armed('planreset')?'armed':''}" data-act="planreset">${armed('planreset')?'Tap again to restore the saved plan':'Restore the saved plan'}</button>`;
