@@ -1052,7 +1052,7 @@ function undo(){
   const g=G();if(!g.events.length)return;const last=g.events[g.events.length-1].b;
   g.events=g.events.filter(e=>e.b!==last);say('Last change undone');save();renderAll();
 }
-function addGoal(o){const g=G();g.goals.push(o);g.goals.sort((a,b)=>a.t-b.t);}
+function addGoal(o){const g=G();if(!g.started){g.started=true;g.runStart=T();}g.goals.push(o);g.goals.sort((a,b)=>a.t-b.t);}
 
 /* ---------- Setup actions ---------- */
 function applyForm(){
@@ -1102,6 +1102,13 @@ function act(a,ds){
       if(armed('minus'+side)){g.goals.splice(k,1);UI.arm=null;UI.lastUs=scoreOf(g).us;say('Goal taken off');save();}else{arm('minus'+side);say('Tap − again to take off the last '+(side==='us'?shortName():oppName())+' goal');}break;}
     case 'goalus':UI.goal={side:'us',t:Math.round(clock(g)),step:'by'};playSong();break;
     case 'goalthem':{const d=replay(g);addGoal({side:'them',t:Math.round(clock(g)),gk:d.L.GK||null});say(oppName()+' goal at '+fmt(clock(g)));save();break;}
+    case 'endgame':
+      if(armed('endgame')){if(g.running){g.acc=clock(g);g.running=false;}g.started=true;g.fullDone=true;g.halfDone=true;g.pending=null;
+        const E=ends(g);if(!g.stops.includes(E[E.length-1]))g.stops.push(E[E.length-1]);UI.arm=null;UI.sel=null;
+        const sc=scoreOf(g);say('Final: '+shortName()+' '+sc.us+', '+oppName()+' '+sc.them);save();}
+      else{arm('endgame');say('Tap End game again to make the score final');}
+      break;
+    case 'reopen':if(armed('reopen')){g.fullDone=false;UI.arm=null;say('Game reopened');save();}else arm('reopen');break;
     case 'goalcancel':UI.goal=null;break;
     case 'goalby':if(!UI.goal)break;
       if(ds.id){UI.goal.by=ds.id;UI.goal.step='ast';}
@@ -1218,7 +1225,7 @@ function renderBrand(){
   document.title=c.name+' game tracker';
 }
 function renderGames(){
-  $('games').innerHTML=`<a class="gbtn clubbtn" href="${clubLink()}"><b>‹ Club</b><small>All teams</small></a>`+CFG().games.map((gc,i)=>gc.imported&&i!==curIdx()?'':`<button class="gbtn" data-act="game" data-i="${i}" aria-pressed="${i===curIdx()}"><b>${esc(gc.title)}</b><small data-lv="gstat" data-i="${i}">${esc(status(gc))}</small></button>`).join('');
+  $('games').innerHTML=`<a class="gbtn clubbtn" href="${clubLink()}"><b>‹ Club</b><small>All teams</small></a>`+CFG().games.map((gc,i)=>gc.imported&&i!==curIdx()&&!(Date.now()-new Date(gc.dt).getTime()<7*864e5)?'':`<button class="gbtn" data-act="game" data-i="${i}" aria-pressed="${i===curIdx()}"><b>${esc(gc.title)}</b><small data-lv="gstat" data-i="${i}">${esc(status(gc))}</small></button>`).join('');
 }
 function renderClock(){
   const g=G();const c=clock(g);const H=HMS(g),SUB=SMS(g);
@@ -1251,7 +1258,7 @@ function renderCtrl(){
   else if(e!=null){const H=HMS(g);label=e===H?'Start 2nd half':e===2*H?'Start overtime':'Start OT '+(otIndex(g,e)+1);}
   $('ctrl').innerHTML=`<button class="btn" data-act="undo" ${g.events.length?'':'disabled'} aria-label="Undo last sub">Undo</button>
     <button class="btn" data-act="adjtoggle" aria-pressed="${UI.adj}" ${g.started?'':'disabled'}>Adjust</button>
-    <button class="${cls}" data-act="play" ${g.fullDone?'disabled':''}>${label}</button>`;
+    <button class="${cls}" data-act="play" ${g.fullDone?'disabled':''}>${label}</button>${g.started&&!g.fullDone?`<button class="btn ${armed('endgame')?'danger-s armed':''}" data-act="endgame">${armed('endgame')?'Tap to end':'End game'}</button>`:''}`;
   const ar=$('adjrow');if(!g.started)UI.adj=false;ar.hidden=!UI.adj;
   if(UI.adj)ar.innerHTML=`<span>Nudge the clock to match the ref</span>
     <button class="btn small" data-act="adj" data-d="-60">−1:00</button><button class="btn small" data-act="adj" data-d="-10">−0:10</button>
@@ -1435,6 +1442,7 @@ function renderPlayers(d){
       <div class="pst">${stat}</div>
       <div class="pmin"><b data-lv="played" data-id="${p.id}">${fmt(s.played)}</b><small>${here?pm+' min planned':'played'}</small></div>
       <button class="tog ${here?'on':''}" data-act="avail" data-id="${p.id}" aria-pressed="${here}">${here?'Here':'Out'}</button></div>`;});
+  if(g.fullDone)h+=`<div class="ctx">This game is final. <button class="btn small ${armed('reopen')?'danger-s armed':''}" data-act="reopen">${armed('reopen')?'Tap again to reopen':'Reopen game'}</button></div>`;
   const step=(k,label,val)=>`<div class="set"><span>${label}</span><div class="step"><button data-act="set" data-key="${k}" data-d="-1" aria-label="Less">−</button><b>${val}</b><button data-act="set" data-key="${k}" data-d="1" aria-label="More">+</button></div></div>`;
   h+=`<h3>Game settings</h3>${step('half','Half length',g.half+' min')}${step('sub','Sub every',g.sub+' min')}${step('otLen','Overtime periods',g.otLen+' min')}${step('otN','Number of overtime periods',g.otN)}
    <div class="set"><span>Sub alert sound</span><button class="tog ${S.beep?'on':''}" data-act="beep" aria-pressed="${S.beep}">${S.beep?'On':'Off'}</button></div>
