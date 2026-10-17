@@ -460,6 +460,9 @@ details.past{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}de
 button.mchip{cursor:pointer}
 .mchip.picked{border-color:#fff;box-shadow:0 0 0 3px var(--crimson)}
 .planview{margin:0 0 6px}
+.lineuphide{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#fff;text-align:center;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+.lineuphide b{font:700 30px "Barlow Condensed",sans-serif}
+.lineuphide span{font-size:15px;opacity:.9}
 .pkcard{margin:4px 0 12px}
 .pko{list-style:none;margin:6px 0 8px;padding:0}
 .pko li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;border-radius:9px;background:var(--surface-2);margin-bottom:4px;font-size:16px}
@@ -1576,6 +1579,7 @@ function renderField(){
     h+=`<button class="${cls.join(' ')}" style="left:${pi.x}%;top:${pi.y}%" data-act="pos" data-p="${p}" aria-label="${esc(pi.name)}: ${esc(nm(id))}">
       <div class="ps">${p}</div><div class="nm">${esc(nm(id))}</div>
       ${par?'':`<div class="mn"><span>In <b data-lv="played" data-id="${id}">${fmt(s.played)}</b></span><span>Sat <b data-lv="sattot" data-id="${id}">${fmt(d.now-s.played)}</b></span></div>`}${inc}</button>`;});
+  if(hideLineup())h=LINES+`<div class="lineuphide"><b>Lineup at kickoff</b><span>${esc(whenText(GC()))}</span></div>`;
   pitch.innerHTML=h;
 }
 function renderHint(){
@@ -1586,12 +1590,12 @@ function renderHint(){
     el.className='hint on';el.innerHTML=`<span>${t}</span><button class="btn small" data-act="cancel">Cancel</button>`;
   }else if(UI.msg){el.className='hint msg';el.textContent=UI.msg;}
   else if(UI.fieldMode==='stat'&&canEdit()){el.className='hint';el.textContent='Tracking stats: tap a player to log a pass, shot, tackle and more.';}
-  else{el.className='hint';el.textContent=isParent()?'Following live. The score, clock and lineup update on their own.':g.started?'Tap a player, then a bench player to sub, or another player to swap spots.':'Before kickoff, changes set the starting lineup. Nothing is logged until the clock starts.';}
+  else{el.className='hint';el.textContent=isParent()?(g.started?'Following live. The score, clock and lineup update on their own.':'The lineup shows here when the game kicks off.'):g.started?'Tap a player, then a bench player to sub, or another player to swap spots.':'Before kickoff, changes set the starting lineup. Nothing is logged until the clock starts.';}
 }
 function renderTabs(){
   const g=G();const d=replay(g);const benchN=PLAYERS.filter(p=>av(g,p.id)&&!d.on.has(p.id)).length;
   if(isParent()&&!['bench','stats','players','log'].includes(S.tab))S.tab='bench';
-  const tabs=isParent()?[['bench','Bench',benchN],['stats','Stats',''],['players','Team',''],['log','Goals',g.goals.length||'']]
+  const tabs=isParent()?[['bench','Bench',g.started?benchN:''],['stats','Stats',''],['players','Team',''],['log','Goals',g.goals.length||'']]
     :[['bench','Bench',benchN],['plan','Plan',''],['players','Players',''],['log','Log',d.batches.length||''],['stats','Stats',''],['minutes','Minutes',''],['setup','Setup','']];
   $('tabs').innerHTML=tabs.map(([t,l,c])=>`<button class="tab" role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab===t}">${l}${c!==''?`<span class="ct">${c}</span>`:''}</button>`).join('');
 }
@@ -1803,8 +1807,10 @@ function renderSetup(){
   return h;
 }
 /* Parent views */
+/* Parents don't see the lineup or bench until kickoff. */
+const hideLineup=()=>isParent()&&!G().started;
 function renderParentBench(d){
-  const g=G();const bench=PLAYERS.filter(p=>av(g,p.id)&&!d.on.has(p.id));
+  const g=G();if(!g.started)return '<div class="empty">The lineup and bench show here at kickoff.</div>';const bench=PLAYERS.filter(p=>av(g,p.id)&&!d.on.has(p.id));
   return bench.length?'<div class="bgrid">'+bench.map(p=>`<div class="bp"><span class="n">${esc(p.name)}${jn(p)}${p.guest?'<span class="tag">Guest</span>':''}</span><span class="r">On the bench</span></div>`).join('')+'</div>'
     :'<div class="empty">Everyone who’s here is on the field.</div>';
 }
@@ -1812,7 +1818,7 @@ function renderTeam(d){
   const g=G();const gc=GC();
   let h=`<h3>${esc(gc.title)}</h3><p class="fine" style="margin-top:-4px">${esc(gameNote(gc,g))}</p>`;
   PLAYERS.filter(p=>av(g,p.id)).forEach(p=>{const pos=POS.find(x=>d.L[x]===p.id);
-    h+=`<div class="prow pteam"><div class="pn"><b>${esc(p.name)}</b>${jn(p)} ${p.guest?'<span class="tag">Guest</span>':''}${goalTag(g,p.id)}</div><div class="pst">${pos?'On the field ('+pos+')':'Bench'}</div></div>`;});
+    h+=`<div class="prow pteam"><div class="pn"><b>${esc(p.name)}</b>${jn(p)} ${p.guest?'<span class="tag">Guest</span>':''}${goalTag(g,p.id)}</div><div class="pst">${!g.started?'Here':pos?'On the field ('+pos+')':'Bench'}</div></div>`;});
   const tsd=x=>{const v=new Date(x.dt).getTime();return isNaN(v)?Infinity:v;};
   const up=CFG().games.filter(x=>!stateOf(x).fullDone).sort((a,b)=>tsd(a)-tsd(b)),done=CFG().games.filter(x=>stateOf(x).fullDone).sort((a,b)=>tsd(b)-tsd(a));
   h+=`<h3>Schedule</h3>`+(up.length?'':'<p class="muted">No games scheduled.</p>')+up.concat([null]).concat(done).map(x=>{if(!x)return done.length?'<h3>Results</h3>':'';const st=stateOf(x);const sc=scoreOf(st);
