@@ -593,6 +593,9 @@ const GNAME={GK:'Keeper',DEF:'Defense',MID:'Midfield',FWD:'Forward'};
 const P9=['GK','LB','CB','RB','LM','CM','RM','LS','RS'];
 const mk=rows=>rows.map(r=>{const a=r.trim().split(/\s+/);const o={};P9.forEach((p,i)=>o[p]=a[i]);return o;});
 const G3PLAN=['sarah ainsley alexa spencer kadence vivi emmie df dm','sarah kennedy olivia emily hollis vivi emmie june dm','sarah ainsley olivia spencer kadence alexa emmie june df','dolly kennedy olivia emily kadence vivi hollis dm df','dolly ainsley alexa spencer emmie vivi hollis dm june','dolly kennedy alexa emily kadence olivia hollis df june'];
+/* Game 3 rotation from the coach (Sun 10/18): Sarah 1st half, Dolly 2nd; every field player 40 min, one break per half,
+   never two in a row; subs go straight into the spot of the player coming off, so nobody moves mid-game. */
+const G3ROT=['sarah ainsley alexa spencer emmie vivi hollis df june', 'sarah emily olivia spencer kennedy vivi hollis dm june', 'sarah emily olivia ainsley kennedy alexa emmie dm df', 'dolly emily olivia spencer kennedy vivi hollis dm june', 'dolly ainsley alexa spencer emmie vivi hollis df june', 'dolly ainsley alexa emily emmie olivia kennedy df dm'];
 const G3NOKAD=['sarah ainsley alexa spencer kennedy vivi emmie df dm','sarah kennedy olivia emily hollis vivi emmie june dm','sarah ainsley emily spencer olivia alexa emmie june df','dolly ainsley olivia emily kennedy vivi hollis dm df','dolly ainsley alexa spencer emmie vivi hollis dm june','dolly spencer alexa emily kennedy olivia hollis df june'];
 /* Venue: Merrimack Soccer Complex. Map links go to the lot for each field number. */
 /* City of Huntsville: fields 1-10 (grass) are on Triana Blvd, fields 11-18 (turf) are on Ivy Ave. */
@@ -793,6 +796,9 @@ function migrateTeam(id,ts){
     if(once(c,'g1-dedupe-2026-10-18',()=>{const st=ts.games.g1;if(!st)return;
       [['goals','rg'],['saves','rv']].forEach(([k,pre])=>{const keys=new Set(st[k].filter(x=>String(x.u).startsWith(pre)).map(itemKey));
         st[k]=st[k].filter(x=>{if(String(x.u).startsWith(pre)||!keys.has(itemKey(x)))return true;if(x.u&&!st.del.includes(x.u))st.del.push(x.u);return false;});});}))ch=true;
+    if(once(c,'g3-rotation-2026-10-18',()=>{const st=ts.games.g3;const gc=c.games.find(x=>x.id==='g3');const np=mk(G3ROT);
+      if(gc)gc.plan=mk(G3ROT);if(!st||hasData(st))return;st.plan=np.map(b=>Object.assign({},b));st.start=Object.assign({},st.plan[0]);
+      Object.keys(st.avail).forEach(k=>{if(k!=='kadence'&&np.some(b=>Object.values(b).includes(k)))st.avail[k]=true;});}))ch=true;
     if(once(c,'final-text-2026-10-18',()=>{const gc=c.games.find(x=>x.id==='g4');if(gc&&/if we advance/i.test(gc.when||''))gc.when='Sun';}))ch=true;
     CU_HISTORY.forEach(([gid,dt,opp,field,us,them])=>{
       if(!c.games.some(x=>x.id===gid)){c.games.push({id:gid,title:opp.split(' ').slice(0,2).join(' '),opp,dt,field,place:'',half:30,sub:10,out:[],imported:true});ch=true;}
@@ -1134,10 +1140,10 @@ async function switchTeam(id){
   useTeam();saveLocal();renderAll();if(canEdit())save();
 }
 function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,30)||'team';}
-const PUB_VER='2026-10-18b';
+const PUB_VER='2026-10-18c';
 /* APP_VER changes with every deploy that coach devices should pick up. When the published page's APP_VER
    differs from the running one, a coach device reloads itself if no clock is running, or shows a Refresh button. */
-const APP_VER='2026-10-18b';
+const APP_VER='2026-10-18c';
 const VER={tag:null,ready:false};
 async function checkVersion(){
   if(!SY.on||!canEdit()||document.visibilityState!=='visible')return;
