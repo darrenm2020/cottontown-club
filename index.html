@@ -1084,7 +1084,7 @@ async function getState(team){
   const off=j.now-Math.round((t0+Date.now())/2);OFF=SY.on?Math.round(OFF*0.8+off*0.2):off;return j;
 }
 async function syncInit(){
-  try{resetSync();const j=await getState(S.team);SY.on=true;SY.ok=true;applyServer(j);setInterval(poll,2000);if(S.master&&S.pubVer!==PUB_VER)setTimeout(publishAll,1500);}
+  try{resetSync();const j=await getState(S.team);SY.on=true;SY.ok=true;applyServer(j);setInterval(poll,2000);setInterval(checkVersion,60000);setInterval(maybeReload,15000);if(S.master&&S.pubVer!==PUB_VER)setTimeout(publishAll,1500);}
   catch(e){SY.on=false;}
   if(!CFG()){S.team='cottontown';useTeam();}
   renderAll();
@@ -1126,6 +1126,23 @@ async function switchTeam(id){
 }
 function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,30)||'team';}
 const PUB_VER='2026-10-18';
+/* APP_VER changes with every deploy that coach devices should pick up. When the published page's APP_VER
+   differs from the running one, a coach device reloads itself if no clock is running, or shows a Refresh button. */
+const APP_VER='2026-10-18a';
+const VER={tag:null,ready:false};
+async function checkVersion(){
+  if(!SY.on||!canEdit()||document.visibilityState!=='visible')return;
+  try{const r=await fetch(location.pathname,{method:'HEAD',cache:'no-store'});const t=r.headers.get('etag')||r.headers.get('last-modified');if(!t)return;
+    if(VER.tag===null){VER.tag=t;return;}if(t===VER.tag)return;VER.tag=t;
+    const html=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'}).then(x=>x.text());
+    const m=html.match(/const APP_VER='([^']+)'/);if(m&&m[1]!==APP_VER){VER.ready=true;maybeReload();}}catch(e){}
+}
+function maybeReload(){
+  if(!VER.ready)return;const ts=TS();
+  const busy=(ts&&Object.values(ts.games||{}).some(g=>g&&g.running))||UI.sheet||UI.sel||UI.goal||UI.pk||UI.pick||Object.values(SY.inflight).some(n=>n>0)
+    ||(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName));
+  if(!busy){location.reload();return;}renderHint();
+}
 async function publishAll(){
   const code=S.master||myCode();
   if(!SY.on&&!CLUB.on){say('This only works on the live site');renderHint&&renderHint();return;}
@@ -1488,6 +1505,7 @@ function act(a,ds){
     case 'teamcreate':createTeam();return;
     case 'teamgo':switchTeam(ds.id);return;
     case 'puball':publishAll();return;
+    case 'reload':location.reload();return;
     case 'setcode':setCode();return;
     case 'copyclub':{try{navigator.clipboard.writeText(location.origin+clubLink()).then(()=>{say('Club link copied');renderHint();},()=>{});}catch(e){}break;}
     case 'copylink':{const link=parentLink();
@@ -1683,6 +1701,7 @@ function renderField(){
 }
 function renderHint(){
   const el=$('hint');const sel=UI.sel;if(!CFG()){el.textContent='';return;}const g=G();
+  if(VER.ready&&!sel&&canEdit()){el.className='hint on';el.innerHTML='<span>A new version of the tracker is ready. It loads on its own when the clock is stopped.</span><button class="btn small" data-act="reload">Refresh now</button>';return;}
   if(!sel&&!UI.msg&&planEditing()){el.className='hint on';el.innerHTML=`<span>Editing the plan for ${blockRange(g,UI.planK)}. Tap a player, then another to swap, or a bench name in that block below.</span><button class="btn small" data-act="planedone">Done</button>`;return;}
   if(sel){
     const t=sel.type==='pos'?`Pick who comes in at ${esc(PI[sel.pos]?PI[sel.pos].name.toLowerCase():sel.pos)}, or tap another spot to swap.`:`Tap a spot on the field to put ${esc(nm(sel.id))} in.`;
