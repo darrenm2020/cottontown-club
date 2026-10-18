@@ -595,8 +595,10 @@ const mk=rows=>rows.map(r=>{const a=r.trim().split(/\s+/);const o={};P9.forEach(
 const G3PLAN=['sarah ainsley alexa spencer kadence vivi emmie df dm','sarah kennedy olivia emily hollis vivi emmie june dm','sarah ainsley olivia spencer kadence alexa emmie june df','dolly kennedy olivia emily kadence vivi hollis dm df','dolly ainsley alexa spencer emmie vivi hollis dm june','dolly kennedy alexa emily kadence olivia hollis df june'];
 const G3NOKAD=['sarah ainsley alexa spencer kennedy vivi emmie df dm','sarah kennedy olivia emily hollis vivi emmie june dm','sarah ainsley emily spencer olivia alexa emmie june df','dolly ainsley olivia emily kennedy vivi hollis dm df','dolly ainsley alexa spencer emmie vivi hollis dm june','dolly spencer alexa emily kennedy olivia hollis df june'];
 /* Venue: Merrimack Soccer Complex. Map links go to the lot for each field number. */
-const ADDR={a:'3501 Triana Blvd SW, Huntsville, AL 35805',b:'3251 Ivy Ave SW, Huntsville, AL 35805',c:'2800 Drake Ave SW, Huntsville, AL 35805'};
-function fieldAddr(f){const n=parseInt((String(f||'').match(/\d+/)||[''])[0],10);return !n?'':n<=10?ADDR.a:n<=14?ADDR.b:ADDR.c;}
+/* City of Huntsville: fields 1-10 (grass) are on Triana Blvd, fields 11-18 (turf) are on Ivy Ave. */
+const ADDR={a:'3501 Triana Blvd SW, Huntsville, AL 35805',b:'3217 Ivy Ave SW, Huntsville, AL 35805'};
+const BAD_ADDR=['3251 Ivy Ave SW, Huntsville, AL 35805','2800 Drake Ave SW, Huntsville, AL 35805'];
+function fieldAddr(f){const n=parseInt((String(f||'').match(/\d+/)||[''])[0],10);return !n?'':n<=10?ADDR.a:n<=18?ADDR.b:'';}
 function addGame(c,gc){if(c.games.some(x=>x.id===gc.id))return;const i=c.games.findIndex(x=>!x.imported&&x.dt&&x.dt>gc.dt);if(i<0)c.games.push(gc);else c.games.splice(i,0,gc);}
 function setResult(ts,gid,form,half,us,them){const st=ts.games[gid];if(st&&hasData(st))return false;ts.games[gid]=importedResult(form,half,us,them);ts.games[gid].goals.forEach((x,i)=>x.u='o'+gid+i);return true;}
 const todayPlaces=c=>c.games.forEach(gc=>{if(gc.field&&!gc.place&&String(gc.dt).startsWith('2026-10-18'))gc.place=fieldAddr(gc.field);});
@@ -648,7 +650,7 @@ function cottonDefault(){return {id:'cottontown',name:'Cottontown United',short:
       'dolly ainsley spencer emily emmie alexa df june dm','dolly ainsley spencer emily hollis olivia df june dm','dolly ainsley spencer emily hollis alexa emmie june dm',
       'sarah ainsley olivia emily hollis alexa emmie df dm','sarah ainsley olivia spencer hollis alexa emmie df june','sarah emily olivia spencer hollis alexa emmie dm june'])},
     {id:'g3',title:'Game 3',opp:'Vero FC NASC U12G Select',dt:'2026-10-18T09:45',field:'Field 12B',place:'',half:30,sub:10,out:[],plan:mk(G3PLAN)},
-    {id:'g4',title:'Final',opp:'',dt:'',when:'Sun, if we advance',field:'',place:'',half:30,sub:10,out:[],note:'Opponent and field to be set',plan:mk(G3PLAN)}
+    {id:'g4',title:'Final',opp:'',dt:'',when:'Sun',field:'',place:'',half:30,sub:10,out:[],note:'Opponent and field to be set',plan:mk(G3PLAN)}
   ]};}
 
 /* ---------- Storage ---------- */
@@ -757,6 +759,7 @@ const CU_HISTORY=[
  ['h23','2026-09-26T15:30','AFC Alabaster U12G Premier','Hoover Met Turf 03A',1,5],['h24','2026-09-27T08:50','Homewood Red 2014-2015 Girls','Hoover Met Turf 03B',1,3]];
 function migrateTeam(id,ts){
   if(!ts||!ts.cfg)return false;let ch=false;const c=ts.cfg;
+  if(once(c,'place-fix-2026-10-18',()=>c.games.forEach(gc=>{if(BAD_ADDR.includes(gc.place))gc.place=fieldAddr(gc.field);})))ch=true;
   if(id==='cottontown'){
     if(c.name==='Cottontown United'){c.name='Cottontown United Girls Development';ch=true;}
     const NUMS={sarah:'2',kennedy:'31',alexa:'89',kadence:'11',spencer:'30',ainsley:'12',hollis:'99',vivi:'4',june:'44',olivia:'22',dolly:'15',emmie:'13',emily:'6',dm:'26',df:'18'};
@@ -781,6 +784,7 @@ function migrateTeam(id,ts){
       if(!st.runStart||st.runStart>Date.parse('2026-10-18T05:00:00Z'))return; // only the accidental start Saturday night
       Object.assign(st,{started:false,running:false,acc:0,runStart:0,stops:[],alerted:[],halfDone:false,fullDone:false,pending:null,xt:[]});}))ch=true;
     if(once(c,'places-2026-10-18',()=>todayPlaces(c)))ch=true;
+    if(once(c,'final-text-2026-10-18',()=>{const gc=c.games.find(x=>x.id==='g4');if(gc&&/if we advance/i.test(gc.when||''))gc.when='Sun';}))ch=true;
     CU_HISTORY.forEach(([gid,dt,opp,field,us,them])=>{
       if(!c.games.some(x=>x.id===gid)){c.games.push({id:gid,title:opp.split(' ').slice(0,2).join(' '),opp,dt,field,place:'',half:30,sub:10,out:[],imported:true});ch=true;}
       if(!ts.games[gid]){ts.games[gid]=importedResult('9v9/3-3-2',30,us,them);ch=true;}});
