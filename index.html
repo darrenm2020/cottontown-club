@@ -460,6 +460,18 @@ details.past{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}de
 button.mchip{cursor:pointer}
 .mchip.picked{border-color:#fff;box-shadow:0 0 0 3px var(--crimson)}
 .planview{margin:0 0 6px}
+.planrow{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 10px;padding:6px 10px;border-radius:10px;background:var(--surface-2);font-size:14px}
+.planswitch{margin-bottom:10px}
+.pickpos .posgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px;margin:8px 0}
+.pickpos .posgrid button{border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 8px;text-align:left;min-height:48px;font:inherit;color:var(--ink)}
+.pickpos .posgrid button b{display:block;font:700 16px "Barlow Condensed",sans-serif;color:var(--crimson)}
+.pickpos .posgrid button small{display:block;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pickpos .posgrid button.cur{border-color:#16a34a;background:#e9f7ee}
+.pickacts{display:flex;flex-wrap:wrap;gap:6px}
+.ccard a.cta,.ccard a.gla,.ccard a.open{display:block;color:inherit;text-decoration:none}
+.ccard a.gla{border-radius:8px}.ccard a.gla:hover{background:var(--surface-2)}
+@media (min-width:1441px){.top{grid-template-columns:auto 1fr auto auto}.games{grid-column:1/-1;grid-row:2;justify-self:stretch;min-width:0}}
+@media (min-width:521px){.games{min-width:0;max-width:100%}.games .gbtn{flex:1 1 0;min-width:0;overflow:hidden}.games .gbtn b,.games .gbtn small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.games .gbtn.clubbtn{flex:0 0 auto}}
 .lineuphide{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#fff;text-align:center;text-shadow:0 1px 2px rgba(0,0,0,.4)}
 .lineuphide b{font:700 30px "Barlow Condensed",sans-serif}
 .lineuphide span{font-size:15px;opacity:.9}
@@ -582,6 +594,35 @@ const P9=['GK','LB','CB','RB','LM','CM','RM','LS','RS'];
 const mk=rows=>rows.map(r=>{const a=r.trim().split(/\s+/);const o={};P9.forEach((p,i)=>o[p]=a[i]);return o;});
 const G3PLAN=['sarah ainsley alexa spencer kadence vivi emmie df dm','sarah kennedy olivia emily hollis vivi emmie june dm','sarah ainsley olivia spencer kadence alexa emmie june df','dolly kennedy olivia emily kadence vivi hollis dm df','dolly ainsley alexa spencer emmie vivi hollis dm june','dolly kennedy alexa emily kadence olivia hollis df june'];
 const G3NOKAD=['sarah ainsley alexa spencer kennedy vivi emmie df dm','sarah kennedy olivia emily hollis vivi emmie june dm','sarah ainsley emily spencer olivia alexa emmie june df','dolly ainsley olivia emily kennedy vivi hollis dm df','dolly ainsley alexa spencer emmie vivi hollis dm june','dolly spencer alexa emily kennedy olivia hollis df june'];
+/* Venue: Merrimack Soccer Complex. Map links go to the lot for each field number. */
+const ADDR={a:'3501 Triana Blvd SW, Huntsville, AL 35805',b:'3251 Ivy Ave SW, Huntsville, AL 35805',c:'2800 Drake Ave SW, Huntsville, AL 35805'};
+function fieldAddr(f){const n=parseInt((String(f||'').match(/\d+/)||[''])[0],10);return !n?'':n<=10?ADDR.a:n<=14?ADDR.b:ADDR.c;}
+function addGame(c,gc){if(c.games.some(x=>x.id===gc.id))return;const i=c.games.findIndex(x=>!x.imported&&x.dt&&x.dt>gc.dt);if(i<0)c.games.push(gc);else c.games.splice(i,0,gc);}
+function setResult(ts,gid,form,half,us,them){const st=ts.games[gid];if(st&&hasData(st))return false;ts.games[gid]=importedResult(form,half,us,them);ts.games[gid].goals.forEach((x,i)=>x.u='o'+gid+i);return true;}
+const todayPlaces=c=>c.games.forEach(gc=>{if(gc.field&&!gc.place&&String(gc.dt).startsWith('2026-10-18'))gc.place=fieldAddr(gc.field);});
+/* Game 1 vs Cullman as saved Sat 10/17 3:18 PM (it was reset by mistake at 12:09 AM Sun). */
+const G1_BACKUP={"form":"9v9/3-3-2","avail":{"dm":true,"vivi":true,"june":true,"olivia":true,"spencer":true,"emmie":true,"hollis":true,"kennedy":true,"emily":true,"ainsley":true,"dolly":false,"kadence":false,"sarah":true,"alexa":true,"df":true},"half":30,"sub":10,"otLen":5,"otN":2,"events":[{"b":1,"t":511855,"pos":"LB","from":"ainsley","to":"spencer"},{"b":2,"t":525541,"pos":"LB","from":"spencer","to":"ainsley"},{"b":3,"t":587587,"pos":"LB","from":"ainsley","to":"spencer"},{"b":3,"t":587587,"pos":"CB","from":"alexa","to":"olivia"},{"b":3,"t":587587,"pos":"RB","from":"emily","to":"kennedy"},{"b":3,"t":587587,"pos":"LM","from":"hollis","to":"dm"},{"b":4,"t":743980,"pos":"CB","from":"olivia","to":"spencer"},{"b":4,"t":743980,"pos":"LB","from":"spencer","to":"olivia"},{"b":5,"t":1260604,"pos":"LB","from":"olivia","to":"spencer"},{"b":5,"t":1260604,"pos":"CB","from":"spencer","to":"ainsley"},{"b":5,"t":1260604,"pos":"RB","from":"kennedy","to":"emily"},{"b":5,"t":1260604,"pos":"CM","from":"vivi","to":"alexa"},{"b":5,"t":1260604,"pos":"RM","from":"emmie","to":"hollis"},{"b":6,"t":1280437,"pos":"CB","from":"ainsley","to":"spencer"},{"b":6,"t":1280437,"pos":"LB","from":"spencer","to":"ainsley"},{"b":7,"t":1800000,"pos":"LB","from":"ainsley","to":"kennedy"},{"b":7,"t":1800000,"pos":"CB","from":"spencer","to":"olivia"},{"b":7,"t":1800000,"pos":"RB","from":"emily","to":"ainsley"},{"b":7,"t":1800000,"pos":"CM","from":"alexa","to":"vivi"},{"b":7,"t":1800000,"pos":"RM","from":"hollis","to":"emmie"},{"b":7,"t":1800000,"pos":"LS","from":"df","to":"spencer"},{"b":8,"t":2475730,"pos":"LB","from":"kennedy","to":"emily"},{"b":8,"t":2475730,"pos":"CB","from":"olivia","to":"alexa"},{"b":8,"t":2475730,"pos":"LM","from":"dm","to":"hollis"},{"b":8,"t":2475730,"pos":"RM","from":"emmie","to":"kennedy"},{"b":8,"t":2475730,"pos":"LS","from":"spencer","to":"emmie"},{"b":8,"t":2475730,"pos":"RS","from":"june","to":"df"},{"b":9,"t":2506845,"pos":"LS","from":"emmie","to":"kennedy"},{"b":9,"t":2506845,"pos":"RM","from":"kennedy","to":"emmie"},{"b":10,"t":2525749,"pos":"LS","from":"kennedy","to":"june"},{"b":11,"t":2585761,"pos":"RS","from":"df","to":"dm"},{"b":12,"t":3051951,"pos":"RB","from":"ainsley","to":"spencer"},{"b":12,"t":3051951,"pos":"CM","from":"vivi","to":"olivia"},{"b":12,"t":3051951,"pos":"RM","from":"emmie","to":"kennedy"},{"b":13,"t":3063972,"pos":"LM","from":"hollis","to":"df"},{"b":14,"t":3112804,"pos":"RB","from":"spencer","to":"june"},{"b":14,"t":3112804,"pos":"LS","from":"june","to":"spencer"},{"b":15,"t":3125713,"pos":"RB","from":"june","to":"vivi"},{"b":16,"t":3155483,"pos":"CM","from":"olivia","to":"vivi"},{"b":16,"t":3155483,"pos":"RB","from":"vivi","to":"olivia"},{"b":17,"t":3175576,"pos":"LB","from":"emily","to":"ainsley"}],"goals":[{"side":"us","t":590787,"by":"june","ast":"dm"},{"side":"them","t":1285807,"gk":"sarah"},{"side":"us","t":1800000,"by":"june","ast":"dm"},{"side":"us","t":3133618,"by":"alexa","ast":null},{"side":"them","t":3447083,"gk":"sarah"}],"saves":[{"t":2280888,"gk":"sarah"},{"t":2284009,"gk":"sarah"}],"acc":3525134,"running":false,"runStart":1792257817865,"started":true,"halfDone":true,"fullDone":true,"stops":[1800000,3600000],"alerted":[1,2,3,4,5],"pending":null,"batch":17,"ot":null,"pk":null,"start":{"GK":"sarah","LB":"ainsley","CB":"alexa","RB":"emily","LM":"hollis","CM":"vivi","RM":"emmie","LS":"df","RS":"june"},"plan":[{"GK":"sarah","LB":"ainsley","CB":"alexa","RB":"emily","LM":"hollis","CM":"vivi","RM":"emmie","LS":"df","RS":"june"},{"GK":"sarah","LB":"spencer","CB":"olivia","RB":"kennedy","LM":"dm","CM":"vivi","RM":"emmie","LS":"df","RS":"june"},{"GK":"sarah","LB":"spencer","CB":"ainsley","RB":"emily","LM":"dm","CM":"alexa","RM":"hollis","LS":"df","RS":"june"},{"GK":"sarah","LB":"kennedy","CB":"olivia","RB":"ainsley","LM":"dm","CM":"vivi","RM":"emmie","LS":"spencer","RS":"june"},{"GK":"sarah","LB":"emily","CB":"alexa","RB":"ainsley","LM":"hollis","CM":"vivi","RM":"kennedy","LS":"emmie","RS":"df"},{"GK":"sarah","LB":"emily","CB":"alexa","RB":"spencer","LM":"hollis","CM":"olivia","RM":"kennedy","LS":"june","RS":"dm"}],"stats":[]};
+function newTeam(id,name,short,sub,format,formation,half,roster,games,results){
+  const ids={};const players=roster.map(([num,nm2,grp])=>{let pid=nm2.toLowerCase().replace(/[^a-z]/g,'');while(ids[pid])pid+='2';ids[pid]=1;return {id:pid,name:nm2,num,gr:grp?[grp]:[]};});
+  const form=format+'/'+formation;const st={};
+  const gs=games.map(([gid,title,opp,dt,field,res])=>{if(res)st[gid]=importedResult(form,half,res[0],res[1]);return {id:gid,title,opp,dt,field,place:dt.startsWith('2026-10-18')?fieldAddr(field):'',half,sub:10,out:[],imported:!!res};});
+  Object.values(st).forEach((g,i)=>g.goals.forEach((x,j)=>x.u='n'+id.length+i+'_'+j));
+  return {cfg:fixCfg({id,name,short,sub,logo:LOGO,song:true,format,formation,players,games:gs}),games:st};
+}
+const NEW_TEAMS={
+  'cottontown-2015':()=>newTeam('cottontown-2015','Cottontown United 2015','Cottontown 2015','U12 Boys','9v9','3-3-2',30,
+    [['4','Brooks'],['24','Cohen'],['1','Caleb'],['6','Hudson'],['2','Julian'],['5','Austin'],['18','Thomas'],['11','Brandon'],['15','Jacob'],['10','Noah'],['29','Henry'],['8','Foster'],['3','Jett'],['19','Hugo'],['7','Elijah']],
+    [['s1','CSA U12','CSA U12','2026-10-17T09:45','Field 9',[4,0]],['s2','Vero Premier','Vero FC Athletic SC AL 2014/15B Premier','2026-10-17T14:45','Field 13B',[3,5]],
+     ['s3','Semi-final','FC National U12 Boys','2026-10-18T09:45','Field 13A']]),
+  'cottontown-boys-white':()=>newTeam('cottontown-boys-white','Cottontown United Boys - White','Cottontown White','U16 Boys','11v11','4-4-2',40,
+    [['9','Landon','MID'],['38','Mateo'],['12','Anthony'],['16','Axel'],['11','Alex'],['6','Tony'],['22','Richarma'],['37','Rodrigo'],['7','Brandon','DEF'],['5','Eliseo'],['17','Jose'],['2','Cade'],['16','Walker'],['4','Jaxon','DEF'],['3','Kaden','DEF'],['10','Victor']],
+    [['s1','FC National','FC National 2011B','2026-10-17T08:00','Field 17',[6,0]],['s2','Vero Premier','Vero FC Athletic SC AL 10/11B Premier','2026-10-17T11:15','Field 7',[8,1]],
+     ['s3','Semi-final','Vero FC Athletic SC AL 10/11B Premier','2026-10-18T08:00','Field 18']]),
+  'cottontown-boys-red':()=>newTeam('cottontown-boys-red','CottonTown United Boys Red','Cottontown Red','U18 Boys','11v11','4-4-2',45,
+    [['26','Rylan'],['19','Hector'],['27','Jenelson'],['31','Luis'],['13','Kevin'],['88','Cayden'],['1','Jacob'],['14','Daniel'],['30','Gabriel'],['21','William'],['8','Bryan'],['66','Owen'],['20','Cruz'],['18','Henry'],['2','David'],['33','Maiky'],['77','Kolbi']],
+    [['s1','Columbus United','Columbus United 2009/10 Boys','2026-10-17T11:15','Field 15',[0,6]],['s2','STUN SC','U18 (08-10) Boys STUN SC','2026-10-17T14:45','Field 6',[2,3]],
+     ['s3','Consolation','Vero FC NASC 09/10B Elite','2026-10-18T11:15','Field 15']])
+};
 function cottonDefault(){return {id:'cottontown',name:'Cottontown United',short:'Cottontown',sub:'Girls 2014/15',logo:LOGO,song:true,format:'9v9',formation:'3-3-2',
   players:[
     {id:'dm',name:'Daleyza M',role:'Striker, outside mid',gr:['FWD','MID']},
@@ -630,7 +671,7 @@ function fixGame(g){
   if(!Array.isArray(g.stops)){g.stops=[];const H=g.half*60000;if(g.halfDone)g.stops.push(H);if(g.fullDone)g.stops.push(2*H);}
   if(!g.otLen)g.otLen=5;if(!g.otN)g.otN=2;if(g.ot===undefined)g.ot=null;if(g.pk===undefined)g.pk=null;
   if(g.pending===undefined)g.pending=null;
-  if(!Array.isArray(g.xt))g.xt=[];if(!Array.isArray(g.pkOrder))g.pkOrder=[];if(!Array.isArray(g.del))g.del=[];
+  if(!Array.isArray(g.xt))g.xt=[];if(!Array.isArray(g.queue))g.queue=[];if(!Array.isArray(g.pkOrder))g.pkOrder=[];if(!Array.isArray(g.del))g.del=[];
   ['goals','stats','saves'].forEach(k=>{const seen={};g[k].forEach(x=>{if(x&&!x.u){const b=k[0]+hashStr(JSON.stringify(x));seen[b]=(seen[b]||0)+1;x.u=b+'.'+seen[b];}});});
   return g;
 }
@@ -733,10 +774,29 @@ function migrateTeam(id,ts){
       const was=JSON.stringify(st.start)===JSON.stringify(b0);b0[p0]='hollis';
       if(p1&&!POSOF(b1,'emmie'))b1[p1]='emmie';
       st.avail.hollis=true;if(was)st.start=Object.assign({},b0);}))ch=true;
+    // Sun 10/18: restore Game 1 (reset by mistake), put Game 3's clock back (started by mistake Sat night), add map links.
+    if(once(c,'restore-g1-2026-10-18',()=>{const st=ts.games.g1;if(st&&(st.started||st.goals.length||st.events.length||st.saves.length))return;
+      const r=fixGame(JSON.parse(JSON.stringify(G1_BACKUP)));r.goals.forEach((x,i)=>x.u='rg'+i);r.saves.forEach((x,i)=>x.u='rv'+i);r.del=[];ts.games.g1=r;}))ch=true;
+    if(once(c,'g3-clock-reset-2026-10-18',()=>{const st=ts.games.g3;if(!st||!st.started||st.events.length||st.goals.length||st.stats.length||st.saves.length||st.acc>5*60000)return;
+      if(!st.runStart||st.runStart>Date.parse('2026-10-18T05:00:00Z'))return; // only the accidental start Saturday night
+      Object.assign(st,{started:false,running:false,acc:0,runStart:0,stops:[],alerted:[],halfDone:false,fullDone:false,pending:null,xt:[]});}))ch=true;
+    if(once(c,'places-2026-10-18',()=>todayPlaces(c)))ch=true;
     CU_HISTORY.forEach(([gid,dt,opp,field,us,them])=>{
       if(!c.games.some(x=>x.id===gid)){c.games.push({id:gid,title:opp.split(' ').slice(0,2).join(' '),opp,dt,field,place:'',half:30,sub:10,out:[],imported:true});ch=true;}
       if(!ts.games[gid]){ts.games[gid]=importedResult('9v9/3-3-2',30,us,them);ch=true;}});
   }
+  if(id==='cottontown-1314-girls'&&once(c,'official-2026-10-18',()=>{
+      // Official result vs Vero: Cottontown 2, Vero 3 (tracker had 3-1 typed in by hand).
+      const st=ts.games.g1;if(st){const gl=st.goals,us=gl.filter(x=>x.side==='us').length,th=gl.filter(x=>x.side==='them').length;
+        if(us===3&&th===1&&gl.every(x=>!x.by)){gl.forEach(x=>{if(x.u&&!st.del.includes(x.u))st.del.push(x.u);});const t=gl[0]?gl[0].t:0;
+          st.goals=[0,1].map(i=>({side:'us',t,u:'og1u'+i})).concat([0,1,2].map(i=>({side:'them',t,u:'og1t'+i})));}}
+      addGame(c,{id:'s1',title:'FC Montgomery',opp:'FC Montgomery N1 Girls 2013-2014 AL',dt:'2026-10-18T11:15',field:'Field 4',place:'',half:35,sub:10,out:[]});
+      todayPlaces(c);}))ch=true;
+  if(id==='cottontown-1617-girls'&&once(c,'official-2026-10-18',()=>{
+      addGame(c,{id:'s1',title:'Final',opp:'Vero FC Athletic SC AL 2016/17G Academy Elite',dt:'2026-10-18T12:00',field:'Field 11A',place:'',half:25,sub:10,out:[]});todayPlaces(c);}))ch=true;
+  if(id==='cottontown-1718-girls'&&once(c,'official-2026-10-18',()=>{
+      [['g1',0,1],['g2',1,2]].forEach(([gid,a,b])=>{const gc=c.games.find(x=>x.id===gid);if(gc&&setResult(ts,gid,'7v7/2-3-1',gc.half||25,a,b))gc.imported=true;});
+      addGame(c,{id:'s1',title:'Consolation',opp:'Camp Forest Chaos',dt:'2026-10-18T09:15',field:'Field 11B',place:'',half:25,sub:10,out:[]});todayPlaces(c);}))ch=true;
   if(id==='cottontown-1314-girls'){const fc=c.games.find(x=>x.id==='g1');const st=ts.games.g1;
     if(fc&&!fc.resultSet&&(!st||!st.started)){ts.games.g1=importedResult('11v11/4-4-2',35,2,3);fc.imported=true;fc.resultSet=true;ch=true;}}
   if(id==='cottontown-1617-girls'){const r=c.games.find(x=>x.id==='r1');if(r&&r.opp==='BAU U10G Blau'){r.opp='Bah U10g Blau';r.title='Bah Blau';ch=true;}
@@ -754,6 +814,7 @@ function seedTeams(s){
     r1:importedResult('7v7/2-3-1',25,2,5),r2:importedResult('7v7/2-3-1',25,3,4),r3:importedResult('7v7/2-3-1',25,4,1)}};
   if(!s.T['cottontown-1718-girls']){const f='7v7/2-3-1',R=(a,b)=>importedResult(f,25,a,b);
     s.T['cottontown-1718-girls']={cfg:fixCfg(team1718()),games:{r1:R(0,2),r2:R(7,1),r3:R(0,1),r4:R(0,6),r5:R(0,6),r6:R(0,3),r7:R(2,1),r8:R(3,2),r9:R(0,1)}};}
+  Object.keys(NEW_TEAMS).forEach(id=>{if(!s.T[id])s.T[id]=NEW_TEAMS[id]();});
   Object.keys(s.T).forEach(k=>migrateTeam(k,s.T[k]));
   return s;
 }
@@ -911,10 +972,17 @@ function winK(g,c){
   if(!g.started||g.fullDone)return null;
   if(g.pending!=null)return g.pending;
   const SUB=SMS(g),H=HMS(g);const r=regOf(g,c);if(stopIn(g,c)>0)return null;const nb=Math.floor(r/SUB)+1;
-  if(nb*SUB<2*H&&nb<PL().length&&nb*SUB-r<=60000)return nb;
+  if(nb*SUB<2*H&&(g.planOff||nb<PL().length)&&nb*SUB-r<=60000)return nb;
   return null;
 }
-function upcoming(g,d){const k=winK(g,d.now);if(k==null||!PL()[k])return null;return {k,target:PL()[k],lines:describe(d.L,PL()[k])};}
+/* Plan off: subs you've lined up (bench player -> position) wait here until you make them. */
+function liveQueue(g,d){return (g.queue||[]).filter(q=>P[q.id]&&av(g,q.id)&&!d.on.has(q.id)&&POS.includes(q.pos));}
+function queueTarget(g,d){const t=Object.assign({},d.L);liveQueue(g,d).forEach(q=>t[q.pos]=q.id);return t;}
+function queueSet(id,pos){const g=G();const d=replay(g);g.queue=(g.queue||[]).filter(q=>q.id!==id&&q.pos!==pos);g.queue.push({id,pos});
+  say(nm(id)+' goes in at '+pos+(d.L[pos]?' for '+nm(d.L[pos]):'')+' at the next sub');save();}
+function upcoming(g,d){
+  if(g.planOff){const q=liveQueue(g,d);if(!q.length)return null;const target=queueTarget(g,d);return {k:'q',target,lines:describe(d.L,target)};}
+  const k=winK(g,d.now);if(k==null||!PL()[k])return null;return {k,target:PL()[k],lines:describe(d.L,PL()[k])};}
 function blockAt(g,c){return Math.min(PL().length-1,Math.floor(regOf(g,c)/SMS(g)));}
 function blockRange(g,i){return i*g.sub+'–'+(i+1)*g.sub+' min';}
 const plannedFor=(g,id)=>g.plan.filter(b=>Object.values(b).includes(id)).length*g.sub;
@@ -971,6 +1039,8 @@ async function push(key){
   SY.inflight[key]--;SY.editT[key]=Date.now();
   if(rerender)renderAll();else renderSync();
 }
+/* ?game=ID from the club page opens that game once the team has loaded. */
+function openWanted(){if(!UI.wantGame||!CFG())return;const i=CFG().games.findIndex(x=>x.id===UI.wantGame);if(i>=0){S.cur[S.team]=i;UI.win=undefined;}UI.wantGame=null;}
 function applyServer(j){
   if(!j||j.team!==S.team||SY.team!==S.team)return;
   PST.srv[S.team]=j.pstats||{};
@@ -1000,6 +1070,7 @@ function applyServer(j){
   });
   if(migrateTeam(S.team,ts))changed=true;
   SY.first=false;
+  if(UI.wantGame){openWanted();changed=true;}
   if(changed||first){useTeam();saveLocal();UI.win=undefined;renderAll();}
   if(canEdit())save();
 }
@@ -1009,7 +1080,7 @@ async function getState(team){
   const off=j.now-Math.round((t0+Date.now())/2);OFF=SY.on?Math.round(OFF*0.8+off*0.2):off;return j;
 }
 async function syncInit(){
-  try{resetSync();const j=await getState(S.team);SY.on=true;SY.ok=true;applyServer(j);setInterval(poll,2000);}
+  try{resetSync();const j=await getState(S.team);SY.on=true;SY.ok=true;applyServer(j);setInterval(poll,2000);if(S.master&&S.pubVer!==PUB_VER)setTimeout(publishAll,1500);}
   catch(e){SY.on=false;}
   if(!CFG()){S.team='cottontown';useTeam();}
   renderAll();
@@ -1050,6 +1121,7 @@ async function switchTeam(id){
   useTeam();saveLocal();renderAll();if(canEdit())save();
 }
 function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,30)||'team';}
+const PUB_VER='2026-10-18';
 async function publishAll(){
   const code=S.master||myCode();
   if(!SY.on&&!CLUB.on){say('This only works on the live site');renderHint&&renderHint();return;}
@@ -1057,16 +1129,26 @@ async function publishAll(){
   UI.pubBusy=true;try{renderAll();}catch(e){}if(CLUB.on)renderClub();
   const post=b=>fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({code},b))});
   let added=0,games=0,failed=0;
+  let fixed=0;
   for(const id of Object.keys(S.T)){
-    const ts=S.T[id];if(!ts.cfg)continue;migrateTeam(id,ts);
+    if(id===S.team&&SY.on&&!CLUB.on)continue; // the open team syncs on its own
+    const ts=S.T[id];if(!ts.cfg)continue;
     let srv=null;try{const r=await fetch(API+'?team='+encodeURIComponent(id),{cache:'no-store'});if(r.ok)srv=await r.json();}catch(e){}
     if(!srv){failed++;continue;}
-    if(!(srv.config&&srv.config.team)){const r=await post({kind:'config',team:id,config:ts.cfg});if(r.ok)added++;else{failed++;continue;}}
-    const have=srv.games||{};
-    for(const gc of ts.cfg.games){const st=ts.games[gc.id];if(st&&!have[gc.id]){const r=await post({kind:'game',team:id,gid:gc.id,game:st});if(r.ok)games++;}}
+    if(!(srv.config&&srv.config.team)){migrateTeam(id,ts);const r=await post({kind:'config',team:id,config:ts.cfg});if(r.ok)added++;else{failed++;continue;}
+      for(const gc of ts.cfg.games){const st=ts.games[gc.id];if(st){const r=await post({kind:'game',team:id,gid:gc.id,game:st});if(r.ok)games++;else failed++;}}
+      continue;}
+    // Already live: run this version's one-time fixes on the live copy and save only what they changed.
+    const live={cfg:fixCfg(JSON.parse(JSON.stringify(srv.config.team))),games:{}};
+    Object.entries(srv.games||{}).forEach(([gid,v])=>{if(v&&v.game)live.games[gid]=fixGame(JSON.parse(JSON.stringify(v.game)));});
+    const before={cfg:JSON.stringify(live.cfg)};Object.keys(live.games).forEach(gid=>before[gid]=JSON.stringify(live.games[gid]));
+    migrateTeam(id,live);let any=false;
+    if(JSON.stringify(live.cfg)!==before.cfg){const r=await post({kind:'config',team:id,config:live.cfg});if(r.ok)any=true;else failed++;}
+    for(const gid of Object.keys(live.games)){if(JSON.stringify(live.games[gid])!==before[gid]){const r=await post({kind:'game',team:id,gid,game:live.games[gid]});if(r.ok){any=true;games++;}else failed++;}}
+    if(any)fixed++;S.T[id]=live;
   }
-  UI.pubBusy=false;
-  say(failed?`Loaded ${added} team${added===1?'':'s'}; ${failed} didn’t load. Check the code and try again.`:added?`Loaded ${added} team${added===1?'':'s'} to the live site`:'All teams were already on the live site');
+  UI.pubBusy=false;if(!failed){S.pubVer=PUB_VER;saveLocal();}
+  say(failed?`Loaded ${added} team${added===1?'':'s'}; ${failed} didn’t load. Check the code and try again.`:(added||fixed)?`Live site updated: ${added} new team${added===1?'':'s'}, ${fixed} updated`:'All teams were already up to date on the live site');
   if(CLUB.on){CLUB.msg=UI.msg;clubFetch();}else{loadTeamList();renderAll();}
 }
 async function createTeam(){
@@ -1178,7 +1260,7 @@ function tapPos(p){
   if(sel&&sel.type==='pos'){
     if(sel.pos===p)UI.sel=null;
     else{const a=d.L[sel.pos],b=d.L[p];change([{pos:sel.pos,to:b},{pos:p,to:a}],'Swapped '+nm(a)+' and '+nm(b));UI.sel=null;}
-  }else if(sel&&sel.type==='player'){change([{pos:p,to:sel.id}],nm(sel.id)+' in for '+nm(d.L[p]));UI.sel=null;}
+  }else if(sel&&sel.type==='player'){const g=G();if(g.planOff&&g.started&&!sel.now)queueSet(sel.id,p);else{g.queue=(g.queue||[]).filter(q=>q.id!==sel.id);change([{pos:p,to:sel.id}],nm(sel.id)+' in for '+nm(d.L[p]));}UI.sel=null;}
   else{UI.sel={type:'pos',pos:p};S.tab='bench';}
   renderAll();
 }
@@ -1365,6 +1447,12 @@ function act(a,ds){
       else arm('planauto');break;
     case 'apply':applyPlan(+ds.k);return;
     case 'startwith':g.start=Object.assign({},PL()[+ds.k]);say('Starting lineup set from '+blockRange(g,+ds.k));save();break;
+    case 'applyq':{const d=replay(g);const q=liveQueue(g,d);if(q.length)change(q.map(x=>({pos:x.pos,to:x.id})),'Subs made');g.queue=[];g.pending=null;UI.sel=null;save();break;}
+    case 'planoff':g.planOff=!g.planOff;if(!g.planOff)g.queue=[];UI.sel=null;say(g.planOff?'Plan off. Tap a bench player to line up where she goes in.':'Following the plan again');save();break;
+    case 'benchq':if(UI.sel&&UI.sel.type==='player'){queueSet(UI.sel.id,ds.p);UI.sel=null;}break;
+    case 'benchnow':if(UI.sel&&UI.sel.type==='player'){const id=UI.sel.id;const d=replay(g);g.queue=(g.queue||[]).filter(q=>q.id!==id);change([{pos:ds.p,to:id}],nm(id)+' in for '+nm(d.L[ds.p]));UI.sel=null;}break;
+    case 'benchnowmode':if(UI.sel&&UI.sel.type==='player')UI.sel.now=!UI.sel.now;break;
+    case 'unq':g.queue=(g.queue||[]).filter(q=>q.id!==ds.id);UI.sel=null;say(nm(ds.id)+' is no longer lined up');save();break;
     case 'dismiss':g.pending=null;save();break;
     case 'avail':g.avail[ds.id]=!av(g,ds.id);if(UI.sel&&UI.sel.type==='player'&&UI.sel.id===ds.id)UI.sel=null;save();break;
     case 'set':{const k=ds.key,dl=+ds.d;
@@ -1537,6 +1625,11 @@ function renderScore(){
 }
 function renderBanner(){
   const g=G();const el=$('banner');
+  if(g.planOff){if(g.pending==null||g.fullDone||isParent()){el.innerHTML='';return;}
+    const d=replay(g);const q=liveQueue(g,d);const lines=q.length?describe(d.L,queueTarget(g,d)):[];const isHalf=g.pending*g.sub===g.half;
+    el.innerHTML=`<div class="banner" role="status"><div><h2>${isHalf?'Halftime':'Sub time'}</h2><p>${lines.length?lines.length+' sub'+(lines.length>1?'s':'')+' lined up':'Tap a bench player to choose where she goes in'}</p></div>
+      <div class="chg">${lines.map(l=>`<span><i>${l.p||''}</i>${esc(l.t)}</span>`).join('')}</div>
+      <div class="acts">${lines.length?'<button class="btn" data-act="applyq">Make these subs</button>':''}<button class="btn ghost" data-act="dismiss">${lines.length?'Not now':'OK'}</button></div></div>`;return;}
   if(g.pending==null||g.fullDone||isParent()||!PL()[g.pending]){el.innerHTML='';return;}
   const k=g.pending;const d=replay(g);const lines=describe(d.L,PL()[k]);
   const isHalf=k*g.sub===g.half;
@@ -1602,7 +1695,7 @@ function renderTabs(){
   $('tabs').innerHTML=tabs.map(([t,l,c])=>`<button class="tab" role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab===t}">${l}${c!==''?`<span class="ct">${c}</span>`:''}</button>`).join('');
 }
 function upNext(g,d,id){
-  if(!g.started)return '';
+  if(!g.started||g.planOff)return '';
   const k=g.pending!=null?g.pending:blockAt(g,d.now)+1;if(k>=PL().length)return '';
   const b=PL()[k];const p=POS.find(x=>b[x]===id);if(!p)return '';const f=d.L[p];
   return `Next sub (${k*g.sub}:00): in at ${p}${f&&f!==id?', call out '+esc(nm(f)):''}`;
@@ -1620,8 +1713,14 @@ function renderBench(d){
   if(sel&&sel.type==='pos'){const cur=d.L[sel.pos];
     h+=`<div class="ctx live">Who goes in at <b>${esc(PI[sel.pos]?PI[sel.pos].name.toLowerCase():sel.pos)}</b>${cur?' for <b>'+esc(nm(cur))+'</b>':''}?
       ${cur&&g.started?`<div class="inj"><button class="tog ${sel.injury?'on':''}" data-act="injury" aria-pressed="${!!sel.injury}">${sel.injury?'Yes':'No'}</button><span>Injured or done for the day? ${sel.injury?esc(nm(cur))+' will be marked out.':'Turn on to mark her out.'}</span></div>`:''}</div>`;}
-  else if(sel&&sel.type==='player')h+=`<div class="ctx live"><b>${esc(nm(sel.id))}</b> is ready. Tap her spot on the field.</div>`;
+  else if(sel&&sel.type==='player'){const queue=g.planOff&&g.started&&!sel.now;const q=(g.queue||[]).find(x=>x.id===sel.id);
+    h+=`<div class="ctx live pickpos"><div>Where is <b>${esc(nm(sel.id))}</b> going ${queue?'at the next sub':'in now'}? Tap a spot here or on the field.</div>
+      <div class="posgrid">${POS.map(p=>{const cur=d.L[p];const lined=(g.queue||[]).find(x=>x.pos===p&&x.id!==sel.id);
+        return `<button class="${q&&q.pos===p?'cur':''}" data-act="${queue?'benchq':'benchnow'}" data-p="${p}"><b>${p}</b><small>${cur?esc(nm(cur)):'Empty'}${lined?' · '+esc(nm(lined.id))+' lined up':''}</small></button>`;}).join('')}</div>
+      <div class="pickacts">${g.planOff&&g.started?`<button class="btn small" data-act="benchnowmode">${sel.now?'Line up for next sub instead':'Sub in right now instead'}</button>`:''}${q?`<button class="btn small" data-act="unq" data-id="${sel.id}">Not going in</button>`:''}<button class="btn small" data-act="cancel">Cancel</button></div></div>`;}
+  else if(up&&g.planOff)h+=`<div class="ctx live">${g.pending!=null?'Sub time.':'Lined up for the next sub.'} Green players are going in.${g.pending!=null?' <button class="btn small" data-act="applyq">Make these subs</button>':''}</div>`;
   else if(up)h+=`<div class="ctx live">${g.pending!=null?'Subs are due now.':'Subs coming in under a minute.'} Green players are going in. <button class="btn small" data-act="editplan">Change plan</button></div>`;
+  if(!sel)h+=`<div class="planrow"><span>Subs: <b>${g.planOff?'You choose':'Follow the plan'}</b></span><button class="btn small" data-act="planoff">${g.planOff?'Use the plan':'Turn off the plan'}</button></div>`;
   const bench=PLAYERS.filter(p=>av(g,p.id)&&!d.on.has(p.id)).sort((a,b)=>d.st[a.id].offAt-d.st[b.id].offAt||d.st[a.id].played-d.st[b.id].played);
   if(!bench.length)h+=`<div class="empty">${PLAYERS.length?'Everyone who’s here is on the field.':'No players yet. Add your roster on the Setup tab.'}</div>`;
   else{h+='<div class="bgrid">';
@@ -1653,6 +1752,7 @@ function renderPlan(d){
   const bad=new Set();PL().forEach((b,i)=>{if(i>cb)POS.forEach(p=>{if(b[p]&&!av(g,b[p]))bad.add(b[p]);});});
   if(bad.size)h+=`<div class="notice">${[...bad].map(nm).join(', ')} ${bad.size>1?'are':'is'} out but still in the plan. Tap a highlighted spot to pick someone else, or rebuild the rotation.</div>`;
   h+=`<p class="fine" style="margin-top:0">${esc(gameNote(gc,g))}. Tap any name in an upcoming block to change who plays there. Each block lists who sits; orange means sitting a second block in a row.</p>`;
+  h+=`<div class="set planswitch"><span><b>Use the plan for subs</b><br><span class="fine">Off: sub alerts still go off, and you tap bench players to line up where each goes in.</span></span><button class="tog ${g.planOff?'':'on'}" data-act="planoff" aria-pressed="${!g.planOff}">${g.planOff?'Off':'On'}</button></div>`;
   const fv=S.planView!=='list';
   h+=`<div class="seg planview"><button data-act="planview" data-v="field" aria-pressed="${fv}">Field</button><button data-act="planview" data-v="list" aria-pressed="${!fv}">List</button></div>${fv?'<p class="fine">Tap a player, then another player on the same field to swap them, or a bench name to bring her in. A green ring means she comes in at that block.</p>':''}`;
   PL().forEach((b,i)=>{
@@ -1918,7 +2018,7 @@ function tick(){
     const E=ends(g);let c=clock(g);
     for(const e of E){if(c>=e&&!g.stops.includes(e)){g.acc=e;g.running=false;g.stops.push(e);if(e===E[0])g.halfDone=true;if(e===E[E.length-1]){g.fullDone=true;g.pending=null;}changed=true;alarm();break;}}
     c=clock(g);const H=HMS(g),SUB=SMS(g);const r=regOf(g,c),e0=ends(g)[0];
-    if(!g.fullDone)for(let i=1;i*SUB<2*H;i++){if(i*SUB<=r&&(i*SUB!==H||c>=e0)&&!g.alerted.includes(i)){g.alerted.push(i);if(i<PL().length)g.pending=i;changed=true;alarm();}}
+    if(!g.fullDone)for(let i=1;i*SUB<2*H;i++){if(i*SUB<=r&&(i*SUB!==H||c>=e0)&&!g.alerted.includes(i)){g.alerted.push(i);if(g.planOff||i<PL().length)g.pending=i;changed=true;alarm();}}
   }
   if(UI.msg&&Date.now()>UI.msgT){UI.msg='';renderHint();}
   if(changed){save();renderAll();return;}
@@ -1933,6 +2033,7 @@ function tick(){
 const CLUB={data:null,on:false,ok:false,edit:false};
 const clubLink=()=>location.pathname+'?club=1';
 const teamLink=id=>location.pathname+'?team='+encodeURIComponent(id);
+const gameLink=(id,gid)=>teamLink(id)+'&game='+encodeURIComponent(gid);
 function summarizeGame(g,pname){
   const goals=g.goals||[];
   return {started:!!g.started,running:!!g.running,acc:g.acc||0,runStart:g.runStart||0,half:g.half||30,ot:g.ot||null,fullDone:!!g.fullDone,stops:g.stops||[],
@@ -1993,14 +2094,14 @@ function renderClub(){
   const wkLabel=new Date(wkStart+864e5).toLocaleDateString('en-US',{month:'short',day:'numeric'})+'–'+new Date(wkEnd).toLocaleDateString('en-US',{month:'short',day:'numeric'});
   h+=`<section class="cs"><h2>Playing this weekend <span class="wk">${wkLabel}</span></h2>`+(wkTeams.length?'<div class="cgrid wkgrid">'+wkTeams.map(({t,live})=>{
       const gs=t.games.filter(inWk).sort((a,b)=>tsOf({g:a})-tsOf({g:b}));
-      return `<a class="ccard ${live?'live':''}" href="${teamLink(t.id)}"><div class="ct">${teamBadge(t,'cl')}<div><b>${esc(t.name)}</b><div class="fine">${esc([t.sub,t.format].filter(Boolean).join(', '))}${t.games.some(g=>inSeason({g})&&g.s&&g.s.fullDone)?', '+recOf(t)+' this season':''}</div></div>${live?'<span class="livepill">Live</span>':''}</div>
-        <div class="gls">${gs.map(g=>gameLine(t,g)).join('')}</div><div class="open">Open team ›</div></a>`;}).join('')+'</div>':'<p class="muted">No games scheduled this weekend.</p>')+'</section>';
+      return `<div class="ccard ${live?'live':''}"><a class="cta" href="${teamLink(t.id)}"><div class="ct">${teamBadge(t,'cl')}<div><b>${esc(t.name)}</b><div class="fine">${esc([t.sub,t.format].filter(Boolean).join(', '))}${t.games.some(g=>inSeason({g})&&g.s&&g.s.fullDone)?', '+recOf(t)+' this season':''}</div></div>${live?'<span class="livepill">Live</span>':''}</div></a>
+        <div class="gls">${gs.map(g=>`<a class="gla" href="${gameLink(t.id,g.id)}">${gameLine(t,g)}</a>`).join('')}</div><a class="open" href="${teamLink(t.id)}">Open team ›</a></div>`;}).join('')+'</div>':'<p class="muted">No games scheduled this weekend.</p>')+'</section>';
   if(others.length)h+=`<section class="cs"><h2>Other teams</h2><div class="cgrid">`+others.map(t=>{
       const nx=t.games.filter(g=>!g.s||!g.s.started).sort((a,b)=>tsOf({g:a})-tsOf({g:b}))[0];
       return `<a class="ccard" href="${teamLink(t.id)}"><div class="ct">${teamBadge(t,'cl')}<div><b>${esc(t.name)}</b><div class="fine">${esc([t.sub,t.format].filter(Boolean).join(', '))}</div></div></div>
         <div class="fine">${recOf(t)} this season${nx?`. Next: ${nx.opp?'vs '+esc(nx.opp)+', ':''}${esc(whenText(nx))}`:''}</div></a>`;}).join('')+'</div></section>';
   h+=`<section class="cs"><h2>Recent results</h2>`+(results.length?'<div class="clist">'+results.map(({t,g})=>{const s=g.s;const r=sResult(s);
-    return `<a class="crow" href="${teamLink(t.id)}">${teamBadge(t,'cls')}<div class="cinfo"><b>${esc(t.name)}</b> vs ${esc(g.opp||'Opponent')}${logoImg(oppLogoOf(g),'ilg')}<div class="fine">${esc(whenText(g))}${s.scorers.length?': '+s.scorers.map(x=>esc(x.by||'Goal')).join(', '):''}</div></div><span class="res r${r}">${r}</span><span class="cfinal">${scoreStr(s)}</span></a>`;}).join('')+'</div>':'<p class="muted">No finished games yet this season.</p>')+'</section>';
+    return `<a class="crow" href="${gameLink(t.id,g.id)}">${teamBadge(t,'cls')}<div class="cinfo"><b>${esc(t.name)}</b> vs ${esc(g.opp||'Opponent')}${logoImg(oppLogoOf(g),'ilg')}<div class="fine">${esc(whenText(g))}${s.scorers.length?': '+s.scorers.map(x=>esc(x.by||'Goal')).join(', '):''}</div></div><span class="res r${r}">${r}</span><span class="cfinal">${scoreStr(s)}</span></a>`;}).join('')+'</div>':'<p class="muted">No finished games yet this season.</p>')+'</section>';
   if(CLUB.on&&S.master){h+=`<section class="cs"><h2>Coach tools</h2><button class="btn small primary-s" data-cact="puball" ${UI.pubBusy?'disabled':''}>${UI.pubBusy?'Loading teams…':'Load all teams'}</button>${CLUB.msg?`<p class="fine">${esc(CLUB.msg)}</p>`:'<p class="fine">Adds every team saved on this iPad to the club page. Teams already here aren’t changed.</p>'}</section>`;}
   if(canClubEdit){
     h+=`<section class="cs"><h2>Club settings</h2>${CLUB.edit?`<div class="card"><label class="fld">Club name<input id="club-name" value="${esc(clubName())}"></label>
@@ -2041,6 +2142,7 @@ function init(){
   if(QP.has('club')||!QP.has('team')){clubInit();return;}
   const qp=new URLSearchParams(location.search).get('team');
   if(qp&&/^[a-z0-9-]{1,40}$/.test(qp)){S.team=qp;if(!S.T[qp])S.T[qp]={cfg:null,games:{}};}
+  UI.wantGame=QP.get('game');openWanted();
   if(!S.T[S.team])S.team='cottontown';
   SY.team=S.team;
   if(CFG())useTeam();
