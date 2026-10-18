@@ -685,6 +685,10 @@ function hashStr(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCode
    App updates and migrations must never replace or clear a game that has data.
    Use hasData() before touching a game, and once() so a fix runs a single time. */
 const hasData=g=>!!g&&(g.started||g.goals.length||g.stats.length||g.saves.length||g.events.length);
+/* Rotation plan is a team setting, off unless a coach turns it on in Setup. Off works like the per-game
+   "plan off": sub alerts still sound and the coach lines up who goes in. */
+const usePlan=()=>!!(CFG()&&CFG().usePlan);
+const pOff=g=>!!g.planOff||!usePlan();
 const POSOF=(b,id)=>Object.keys(b).find(k=>b[k]===id);
 function once(c,id,fn){c.fixes=Array.isArray(c.fixes)?c.fixes:[];if(c.fixes.includes(id))return false;fn();c.fixes.push(id);return true;}
 /* Each goal, stat and save has an id (u) and removals are remembered in del,
@@ -799,6 +803,7 @@ function migrateTeam(id,ts){
     if(once(c,'g3-rotation-2026-10-18',()=>{const st=ts.games.g3;const gc=c.games.find(x=>x.id==='g3');const np=mk(G3ROT);
       if(gc)gc.plan=mk(G3ROT);if(!st||hasData(st))return;st.plan=np.map(b=>Object.assign({},b));st.start=Object.assign({},st.plan[0]);
       Object.keys(st.avail).forEach(k=>{if(k!=='kadence'&&np.some(b=>Object.values(b).includes(k)))st.avail[k]=true;});}))ch=true;
+    if(once(c,'useplan-dev-2026-10-18',()=>{if(c.usePlan===undefined)c.usePlan=true;}))ch=true;
     if(once(c,'final-text-2026-10-18',()=>{const gc=c.games.find(x=>x.id==='g4');if(gc&&/if we advance/i.test(gc.when||''))gc.when='Sun';}))ch=true;
     CU_HISTORY.forEach(([gid,dt,opp,field,us,them])=>{
       if(!c.games.some(x=>x.id===gid)){c.games.push({id:gid,title:opp.split(' ').slice(0,2).join(' '),opp,dt,field,place:'',half:30,sub:10,out:[],imported:true});ch=true;}
@@ -991,7 +996,7 @@ function winK(g,c){
   if(!g.started||g.fullDone)return null;
   if(g.pending!=null)return g.pending;
   const SUB=SMS(g),H=HMS(g);const r=regOf(g,c);if(stopIn(g,c)>0)return null;const nb=Math.floor(r/SUB)+1;
-  if(nb*SUB<2*H&&(g.planOff||nb<PL().length)&&nb*SUB-r<=60000)return nb;
+  if(nb*SUB<2*H&&(pOff(g)||nb<PL().length)&&nb*SUB-r<=60000)return nb;
   return null;
 }
 /* Plan off: subs you've lined up (bench player -> position) wait here until you make them. */
@@ -1000,7 +1005,7 @@ function queueTarget(g,d){const t=Object.assign({},d.L);liveQueue(g,d).forEach(q
 function queueSet(id,pos){const g=G();const d=replay(g);g.queue=(g.queue||[]).filter(q=>q.id!==id&&q.pos!==pos);g.queue.push({id,pos});
   say(nm(id)+' goes in at '+pos+(d.L[pos]?' for '+nm(d.L[pos]):'')+' at the next sub');save();}
 function upcoming(g,d){
-  if(g.planOff){const q=liveQueue(g,d);if(!q.length)return null;const target=queueTarget(g,d);return {k:'q',target,lines:describe(d.L,target)};}
+  if(pOff(g)){const q=liveQueue(g,d);if(!q.length)return null;const target=queueTarget(g,d);return {k:'q',target,lines:describe(d.L,target)};}
   const k=winK(g,d.now);if(k==null||!PL()[k])return null;return {k,target:PL()[k],lines:describe(d.L,PL()[k])};}
 function blockAt(g,c){return Math.min(PL().length-1,Math.floor(regOf(g,c)/SMS(g)));}
 function blockRange(g,i){return i*g.sub+'–'+(i+1)*g.sub+' min';}
@@ -1140,10 +1145,10 @@ async function switchTeam(id){
   useTeam();saveLocal();renderAll();if(canEdit())save();
 }
 function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,30)||'team';}
-const PUB_VER='2026-10-18c';
+const PUB_VER='2026-10-18d';
 /* APP_VER changes with every deploy that coach devices should pick up. When the published page's APP_VER
    differs from the running one, a coach device reloads itself if no clock is running, or shows a Refresh button. */
-const APP_VER='2026-10-18c';
+const APP_VER='2026-10-18d';
 const VER={tag:null,ready:false};
 async function checkVersion(){
   if(!SY.on||!canEdit()||document.visibilityState!=='visible')return;
@@ -1296,7 +1301,7 @@ function tapPos(p){
   if(sel&&sel.type==='pos'){
     if(sel.pos===p)UI.sel=null;
     else{const a=d.L[sel.pos],b=d.L[p];change([{pos:sel.pos,to:b},{pos:p,to:a}],'Swapped '+nm(a)+' and '+nm(b));UI.sel=null;}
-  }else if(sel&&sel.type==='player'){const g=G();if(g.planOff&&g.started&&!sel.now)queueSet(sel.id,p);else{g.queue=(g.queue||[]).filter(q=>q.id!==sel.id);change([{pos:p,to:sel.id}],nm(sel.id)+' in for '+nm(d.L[p]));}UI.sel=null;}
+  }else if(sel&&sel.type==='player'){const g=G();if(pOff(g)&&g.started&&!sel.now)queueSet(sel.id,p);else{g.queue=(g.queue||[]).filter(q=>q.id!==sel.id);change([{pos:p,to:sel.id}],nm(sel.id)+' in for '+nm(d.L[p]));}UI.sel=null;}
   else{UI.sel={type:'pos',pos:p};S.tab='bench';}
   renderAll();
 }
@@ -1512,6 +1517,7 @@ function act(a,ds){
     case 'gmplan':{if(armed('gmplan'+ds.gid)){const gc=CFG().games.find(x=>x.id===ds.gid);if(gc){const st=stateOf(gc);st.plan=autoPlan(st);if(!st.started)st.start=Object.assign({},st.plan[0]||{});say('Rotation rebuilt for '+gc.title);}UI.arm=null;save();}
       else arm('gmplan'+ds.gid);break;}
     case 'opplogodel':{const gc=CFG().games.find(x=>x.id===ds.gid);if(gc){delete gc.oppLogo;save();}break;}
+    case 'cfgplan':{const c=CFG();c.usePlan=!c.usePlan;if(!c.usePlan&&S.tab==='plan')S.tab='bench';UI.pick=null;UI.planK=null;say(c.usePlan?'Rotation plan on. The Plan tab is back.':'Rotation plan off. Sub alerts still sound; tap bench players to line up subs.');save();break;}
     case 'cfgsong':CFG().song=!CFG().song;save();break;
     case 'logodel':CFG().logo=null;save();break;
     case 'teamnew':UI.newTeam=true;break;
@@ -1662,7 +1668,7 @@ function renderScore(){
 }
 function renderBanner(){
   const g=G();const el=$('banner');
-  if(g.planOff){if(g.pending==null||g.fullDone||isParent()){el.innerHTML='';return;}
+  if(pOff(g)){if(g.pending==null||g.fullDone||isParent()){el.innerHTML='';return;}
     const d=replay(g);const q=liveQueue(g,d);const lines=q.length?describe(d.L,queueTarget(g,d)):[];const isHalf=g.pending*g.sub===g.half;
     el.innerHTML=`<div class="banner" role="status"><div><h2>${isHalf?'Halftime':'Sub time'}</h2><p>${lines.length?lines.length+' sub'+(lines.length>1?'s':'')+' lined up':'Tap a bench player to choose where she goes in'}</p></div>
       <div class="chg">${lines.map(l=>`<span><i>${l.p||''}</i>${esc(l.t)}</span>`).join('')}</div>
@@ -1726,14 +1732,15 @@ function renderHint(){
   else{el.className='hint';el.textContent=isParent()?(g.started?'Following live. The score, clock and lineup update on their own.':'The lineup shows here when the game kicks off.'):g.started?'Tap a player, then a bench player to sub, or another player to swap spots.':'Before kickoff, changes set the starting lineup. Nothing is logged until the clock starts.';}
 }
 function renderTabs(){
+  if(CFG()&&!isParent()&&S.tab==='plan'&&!usePlan())S.tab='bench';
   const g=G();const d=replay(g);const benchN=PLAYERS.filter(p=>av(g,p.id)&&!d.on.has(p.id)).length;
   if(isParent()&&!['bench','stats','players','log'].includes(S.tab))S.tab='bench';
   const tabs=isParent()?[['bench','Bench',g.started?benchN:''],['stats','Stats',''],['players','Team',''],['log','Goals',g.goals.length||'']]
-    :[['bench','Bench',benchN],['plan','Plan',''],['players','Players',''],['log','Log',d.batches.length||''],['stats','Stats',''],['minutes','Minutes',''],['setup','Setup','']];
+    :[['bench','Bench',benchN],...(usePlan()?[['plan','Plan','']]:[]),['players','Players',''],['log','Log',d.batches.length||''],['stats','Stats',''],['minutes','Minutes',''],['setup','Setup','']];
   $('tabs').innerHTML=tabs.map(([t,l,c])=>`<button class="tab" role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab===t}">${l}${c!==''?`<span class="ct">${c}</span>`:''}</button>`).join('');
 }
 function upNext(g,d,id){
-  if(!g.started||g.planOff)return '';
+  if(!g.started||pOff(g))return '';
   const k=g.pending!=null?g.pending:blockAt(g,d.now)+1;if(k>=PL().length)return '';
   const b=PL()[k];const p=POS.find(x=>b[x]===id);if(!p)return '';const f=d.L[p];
   return `Next sub (${k*g.sub}:00): in at ${p}${f&&f!==id?', call out '+esc(nm(f)):''}`;
@@ -1751,14 +1758,14 @@ function renderBench(d){
   if(sel&&sel.type==='pos'){const cur=d.L[sel.pos];
     h+=`<div class="ctx live">Who goes in at <b>${esc(PI[sel.pos]?PI[sel.pos].name.toLowerCase():sel.pos)}</b>${cur?' for <b>'+esc(nm(cur))+'</b>':''}?
       ${cur&&g.started?`<div class="inj"><button class="tog ${sel.injury?'on':''}" data-act="injury" aria-pressed="${!!sel.injury}">${sel.injury?'Yes':'No'}</button><span>Injured or done for the day? ${sel.injury?esc(nm(cur))+' will be marked out.':'Turn on to mark her out.'}</span></div>`:''}</div>`;}
-  else if(sel&&sel.type==='player'){const queue=g.planOff&&g.started&&!sel.now;const q=(g.queue||[]).find(x=>x.id===sel.id);
+  else if(sel&&sel.type==='player'){const queue=pOff(g)&&g.started&&!sel.now;const q=(g.queue||[]).find(x=>x.id===sel.id);
     h+=`<div class="ctx live pickpos"><div>Where is <b>${esc(nm(sel.id))}</b> going ${queue?'at the next sub':'in now'}? Tap a spot here or on the field.</div>
       <div class="posgrid">${POS.map(p=>{const cur=d.L[p];const lined=(g.queue||[]).find(x=>x.pos===p&&x.id!==sel.id);
         return `<button class="${q&&q.pos===p?'cur':''}" data-act="${queue?'benchq':'benchnow'}" data-p="${p}"><b>${p}</b><small>${cur?esc(nm(cur)):'Empty'}${lined?' · '+esc(nm(lined.id))+' lined up':''}</small></button>`;}).join('')}</div>
-      <div class="pickacts">${g.planOff&&g.started?`<button class="btn small" data-act="benchnowmode">${sel.now?'Line up for next sub instead':'Sub in right now instead'}</button>`:''}${q?`<button class="btn small" data-act="unq" data-id="${sel.id}">Not going in</button>`:''}<button class="btn small" data-act="cancel">Cancel</button></div></div>`;}
-  else if(up&&g.planOff)h+=`<div class="ctx live">${g.pending!=null?'Sub time.':'Lined up for the next sub.'} Green players are going in.${g.pending!=null?' <button class="btn small" data-act="applyq">Make these subs</button>':''}</div>`;
+      <div class="pickacts">${pOff(g)&&g.started?`<button class="btn small" data-act="benchnowmode">${sel.now?'Line up for next sub instead':'Sub in right now instead'}</button>`:''}${q?`<button class="btn small" data-act="unq" data-id="${sel.id}">Not going in</button>`:''}<button class="btn small" data-act="cancel">Cancel</button></div></div>`;}
+  else if(up&&pOff(g))h+=`<div class="ctx live">${g.pending!=null?'Sub time.':'Lined up for the next sub.'} Green players are going in.${g.pending!=null?' <button class="btn small" data-act="applyq">Make these subs</button>':''}</div>`;
   else if(up)h+=`<div class="ctx live">${g.pending!=null?'Subs are due now.':'Subs coming in under a minute.'} Green players are going in. <button class="btn small" data-act="editplan">Change plan</button></div>`;
-  if(!sel)h+=`<div class="planrow"><span>Subs: <b>${g.planOff?'You choose':'Follow the plan'}</b></span><button class="btn small" data-act="planoff">${g.planOff?'Use the plan':'Turn off the plan'}</button></div>`;
+  if(!sel&&usePlan())h+=`<div class="planrow"><span>Subs: <b>${g.planOff?'You choose':'Follow the plan'}</b></span><button class="btn small" data-act="planoff">${g.planOff?'Use the plan':'Turn off the plan'}</button></div>`;
   const bench=PLAYERS.filter(p=>av(g,p.id)&&!d.on.has(p.id)).sort((a,b)=>d.st[a.id].offAt-d.st[b.id].offAt||d.st[a.id].played-d.st[b.id].played);
   if(!bench.length)h+=`<div class="empty">${PLAYERS.length?'Everyone who’s here is on the field.':'No players yet. Add your roster on the Setup tab.'}</div>`;
   else{h+='<div class="bgrid">';
@@ -1839,7 +1846,7 @@ function renderPlayers(d){
     const pm=here?plannedFor(g,p.id):0;
     h+=`<div class="prow ${here?'':'out'}"><div class="pn"><b>${esc(p.name)}</b>${jn(p)} ${p.guest?'<span class="tag">Guest</span>':''}${goalTag(g,p.id)}<div class="r">${esc(roleText(p))}</div></div>
       <div class="pst">${stat}</div>
-      <div class="pmin"><b data-lv="played" data-id="${p.id}">${fmt(s.played)}</b><small>${here?pm+' min planned':'played'}</small></div>
+      <div class="pmin"><b data-lv="played" data-id="${p.id}">${fmt(s.played)}</b><small>${here&&usePlan()?pm+' min planned':'played'}</small></div>
       <button class="tog ${here?'on':''}" data-act="avail" data-id="${p.id}" aria-pressed="${here}">${here?'Here':'Out'}</button></div>`;});
   if(g.fullDone)h+=`<div class="ctx">This game is final. <button class="btn small ${armed('reopen')?'danger-s armed':''}" data-act="reopen">${armed('reopen')?'Tap again to reopen':'Reopen game'}</button></div>`;
   const step=(k,label,val)=>`<div class="set"><span>${label}</span><div class="step"><button data-act="set" data-key="${k}" data-d="-1" aria-label="Less">−</button><b>${val}</b><button data-act="set" data-key="${k}" data-d="1" aria-label="More">+</button></div></div>`;
@@ -1891,7 +1898,7 @@ function renderMinutes(){
     const cells=games.map((x,i)=>{const g=x.g;const r=reps[i];const m=r&&r.st[p.id]?r.st[p.id].played:0;
       if(r){if(!av(g,p.id)&&m===0)return {t:'Out',cls:'o'};played+=m;proj+=m;return {t:mins(m),cls:''};}
       if(!av(g,p.id))return {t:'Out',cls:'o'};
-      const pm=plannedFor(g,p.id)*60000;proj+=pm;return {t:mins(pm),cls:'p'};});
+      if(!usePlan())return {t:'–',cls:'p'};const pm=plannedFor(g,p.id)*60000;proj+=pm;return {t:mins(pm),cls:'p'};});
     return {p,cells,played,proj};});
   const field=data.filter(x=>!pureGK(x.p));const sorted=field.map(x=>x.proj).sort((a,b)=>a-b);
   const cut=sorted.length>3?sorted[2]:-1;
@@ -1911,6 +1918,7 @@ function renderSetup(){
     <label class="fld">Team name<input data-cfg="team" data-f="name" value="${esc(c.name)}"></label>
     <div class="grid2"><label class="fld">Short name for the scoreboard<input data-cfg="team" data-f="short" value="${esc(c.short||'')}"></label><label class="fld">Subtitle<input data-cfg="team" data-f="sub" value="${esc(c.sub||'')}" placeholder="e.g. Girls 2014/15"></label></div>
     <div class="fld">Logo<div class="logorow">${c.logo?`<img src="${c.logo}" alt="">`:'<span class="muted">No logo yet</span>'}<label class="btn small filebtn">Upload<input type="file" accept="image/*" data-cfg="logo" hidden></label>${c.logo?'<button class="btn small" data-act="logodel">Remove</button>':''}</div></div>
+    <div class="set"><span>Rotation plan<small class="fine" style="display:block">Plan who plays when, block by block. Adds a Plan tab and planned subs. When off, sub alerts still sound and you tap bench players to line up who goes in.</small></span><button class="tog ${c.usePlan?'on':''}" data-act="cfgplan" aria-pressed="${!!c.usePlan}">${c.usePlan?'On':'Off'}</button></div>
     <div class="set"><span>Goal song (the Cottontown chant)</span><button class="tog ${c.song?'on':''}" data-act="cfgsong" aria-pressed="${!!c.song}">${c.song?'On':'Off'}</button></div></div>`;
   h+=`<div class="card"><h3>Format</h3><div class="seg">${FORMATS.map(f=>`<button data-act="fmt" data-f="${f}" aria-pressed="${c.format===f}">${f}</button>`).join('')}</div>
     <div class="seg" style="margin-top:8px">${Object.keys(FORMS[c.format]).map(n=>`<button data-act="formation" data-n="${n}" aria-pressed="${c.formation===n}">${n}</button>`).join('')}</div>
@@ -1994,7 +2002,7 @@ function renderGoals(d){
 function renderPanel(){
   renderTabs();const d=replay(G());const b=$('tbody');
   if(isParent())b.innerHTML=S.tab==='stats'?renderParentStats(d):S.tab==='players'?renderTeam(d):S.tab==='log'?renderGoals(d):renderParentBench(d);
-  else b.innerHTML=S.tab==='plan'?renderPlan(d):S.tab==='players'?renderPlayers(d):S.tab==='log'?renderLog(d):S.tab==='stats'?renderStats(d):S.tab==='minutes'?renderMinutes():S.tab==='setup'?renderSetup():renderBench(d);
+  else b.innerHTML=S.tab==='plan'&&usePlan()?renderPlan(d):S.tab==='players'?renderPlayers(d):S.tab==='log'?renderLog(d):S.tab==='stats'?renderStats(d):S.tab==='minutes'?renderMinutes():S.tab==='setup'?renderSetup():renderBench(d);
   if(UI.focus){const el=$(UI.focus);UI.focus=null;if(el){el.focus();try{el.select();}catch(e){}}}
 }
 function renderSync(){
@@ -2056,7 +2064,7 @@ function tick(){
     const E=ends(g);let c=clock(g);
     for(const e of E){if(c>=e&&!g.stops.includes(e)){g.acc=e;g.running=false;g.stops.push(e);if(e===E[0])g.halfDone=true;if(e===E[E.length-1]){g.fullDone=true;g.pending=null;}changed=true;alarm();break;}}
     c=clock(g);const H=HMS(g),SUB=SMS(g);const r=regOf(g,c),e0=ends(g)[0];
-    if(!g.fullDone)for(let i=1;i*SUB<2*H;i++){if(i*SUB<=r&&(i*SUB!==H||c>=e0)&&!g.alerted.includes(i)){g.alerted.push(i);if(g.planOff||i<PL().length)g.pending=i;changed=true;alarm();}}
+    if(!g.fullDone)for(let i=1;i*SUB<2*H;i++){if(i*SUB<=r&&(i*SUB!==H||c>=e0)&&!g.alerted.includes(i)){g.alerted.push(i);if(pOff(g)||i<PL().length)g.pending=i;changed=true;alarm();}}
   }
   if(UI.msg&&Date.now()>UI.msgT){UI.msg='';renderHint();}
   if(changed){save();renderAll();return;}
