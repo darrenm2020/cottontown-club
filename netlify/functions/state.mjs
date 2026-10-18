@@ -159,7 +159,7 @@ export default async (req) => {
               half: g.half || 30, s: v && v.game ? summarize(v.game, pname) : null };
           })
         );
-        return { id: t.id, name: c.name || t.name, short: c.short || "", sub: c.sub || "", logo: c.logo || null, format: c.format || "", games };
+        return { id: t.id, name: c.name || t.name, short: c.short || "", sub: c.sub || "", logo: c.logo || null, format: c.format || "", placing: c.placing || null, games };
       })
     );
     return json({ now, club: club || null, teams });
