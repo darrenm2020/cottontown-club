@@ -686,11 +686,16 @@ const POSOF=(b,id)=>Object.keys(b).find(k=>b[k]===id);
 function once(c,id,fn){c.fixes=Array.isArray(c.fixes)?c.fixes:[];if(c.fixes.includes(id))return false;fn();c.fixes.push(id);return true;}
 /* Each goal, stat and save has an id (u) and removals are remembered in del,
    so two devices saving the same game merge instead of overwriting each other. */
+const itemKey=x=>JSON.stringify(Object.keys(x).filter(a=>a!=='u').sort().map(a=>[a,x[a]]));
 function mergeGame(srv,loc){
   if(!loc||!srv)return srv;
   const del=new Set([...(srv.del||[]),...(loc.del||[])]);
-  ['goals','stats','saves'].forEach(k=>{const have=new Set(srv[k].map(x=>x.u));
-    srv[k]=srv[k].concat(loc[k].filter(x=>!have.has(x.u))).filter(x=>!del.has(x.u)).sort((a,b)=>a.t-b.t);});
+  // A local item missing from the server but identical to one already there is a stale copy
+  // (e.g. from before a restore), so it isn't added twice. Real repeats on the server are kept.
+  ['goals','stats','saves'].forEach(k=>{const have=new Set(srv[k].map(x=>x.u));const cnt={};
+    srv[k].forEach(x=>{const q=itemKey(x);cnt[q]=(cnt[q]||0)+1;});
+    const extra=loc[k].filter(x=>{if(have.has(x.u)||del.has(x.u))return false;const q=itemKey(x);if(cnt[q]>0){cnt[q]--;return false;}return true;});
+    srv[k]=srv[k].concat(extra).filter(x=>!del.has(x.u)).sort((a,b)=>a.t-b.t);});
   srv.del=[...del];return srv;
 }
 function dropItem(g,k,i){const x=g[k].splice(i,1)[0];if(x&&x.u&&!g.del.includes(x.u))g.del.push(x.u);return x;}
@@ -784,6 +789,10 @@ function migrateTeam(id,ts){
       if(!st.runStart||st.runStart>Date.parse('2026-10-18T05:00:00Z'))return; // only the accidental start Saturday night
       Object.assign(st,{started:false,running:false,acc:0,runStart:0,stops:[],alerted:[],halfDone:false,fullDone:false,pending:null,xt:[]});}))ch=true;
     if(once(c,'places-2026-10-18',()=>todayPlaces(c)))ch=true;
+    // Game 1 picked up a second copy of every goal and save from a device holding the pre-reset game (12:46 AM).
+    if(once(c,'g1-dedupe-2026-10-18',()=>{const st=ts.games.g1;if(!st)return;
+      [['goals','rg'],['saves','rv']].forEach(([k,pre])=>{const keys=new Set(st[k].filter(x=>String(x.u).startsWith(pre)).map(itemKey));
+        st[k]=st[k].filter(x=>{if(String(x.u).startsWith(pre)||!keys.has(itemKey(x)))return true;if(x.u&&!st.del.includes(x.u))st.del.push(x.u);return false;});});}))ch=true;
     if(once(c,'final-text-2026-10-18',()=>{const gc=c.games.find(x=>x.id==='g4');if(gc&&/if we advance/i.test(gc.when||''))gc.when='Sun';}))ch=true;
     CU_HISTORY.forEach(([gid,dt,opp,field,us,them])=>{
       if(!c.games.some(x=>x.id===gid)){c.games.push({id:gid,title:opp.split(' ').slice(0,2).join(' '),opp,dt,field,place:'',half:30,sub:10,out:[],imported:true});ch=true;}
@@ -1125,10 +1134,10 @@ async function switchTeam(id){
   useTeam();saveLocal();renderAll();if(canEdit())save();
 }
 function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,30)||'team';}
-const PUB_VER='2026-10-18';
+const PUB_VER='2026-10-18b';
 /* APP_VER changes with every deploy that coach devices should pick up. When the published page's APP_VER
    differs from the running one, a coach device reloads itself if no clock is running, or shows a Refresh button. */
-const APP_VER='2026-10-18a';
+const APP_VER='2026-10-18b';
 const VER={tag:null,ready:false};
 async function checkVersion(){
   if(!SY.on||!canEdit()||document.visibilityState!=='visible')return;
