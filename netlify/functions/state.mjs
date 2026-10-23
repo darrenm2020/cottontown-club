@@ -11,6 +11,10 @@ import { getStore } from "@netlify/blobs";
 //                  { kind:'club',    club:{name,logo}, code } (main code only)
 //                  { kind:'pstat',   team, gid, stat:{id,k,t,u,dv} }  (no code: parents add positive stats only)
 //                  { kind:'pstatdel', team, gid, u, dv, code? }  (the device that added it, or a coach)
+//                  { kind:'final',   team, gid, final:{us,them,pk?,src,note?}|null, code }
+//                      Official result. Any coach code can confirm one; changing or removing it takes the main code.
+// Official results live in their own blob (lock-TEAM-GID). Game saves can't change them: the official
+// score wins in every summary, and a locked game is always saved as finished.
 // Parent stats live in their own blob (pstats-TEAM-GID) so coach game saves never overwrite them.
 // The main code is the COACH_CODE environment variable and works for every team.
 
@@ -42,6 +46,20 @@ async function authLevel(store, team, code) {
   const a = await store.get("auth-" + team, { type: "json" });
   if (a && a.hash && a.hash === (await sha(code))) return "team";
   return null;
+}
+
+const SOURCES = ["SincSports", "GotSport", "Referee", "League", "Tournament site", "Coach", "Other"];
+function cleanFinal(f) {
+  if (!f || typeof f !== "object") return null;
+  const n = (v) => Math.max(0, Math.min(99, Math.round(Number(v) || 0)));
+  const out = { us: n(f.us), them: n(f.them), src: SOURCES.includes(f.src) ? f.src : "Other", note: String(f.note || "").slice(0, 120) };
+  if (f.pk && typeof f.pk === "object") out.pk = { us: n(f.pk.us), them: n(f.pk.them) };
+  return out;
+}
+// The official result wins over whatever the trackers recorded.
+function applyLock(sum, lock) {
+  if (!lock) return sum;
+  return Object.assign(sum, { started: true, running: false, fullDone: true, us: lock.us, them: lock.them, pk: lock.pk || null, official: { src: lock.src, at: lock.at } });
 }
 
 function summarize(g, pname) {
@@ -96,6 +114,26 @@ export default async (req) => {
     const who = await authLevel(store, team, b.code);
     if (!who) return json({ error: "wrong code" }, 401);
 
+    if (kind === "final") {
+      if (!okGid(b.gid)) return json({ error: "bad request" }, 400);
+      const key = "lock-" + team + "-" + b.gid;
+      const cur = await store.get(key, { type: "json" });
+      if (cur && who !== "master") return json({ error: "only the main code can change an official result" }, 403);
+      if (b.final === null) { if (cur) await store.delete(key); return json({ ok: true, now, final: null }); }
+      const f = cleanFinal(b.final);
+      if (!f) return json({ error: "bad request" }, 400);
+      f.at = now; f.by = who;
+      await store.setJSON(key, f);
+      // Stop a clock some phone may have left running.
+      const gk = "game-" + team + "-" + b.gid;
+      const gv = await store.get(gk, { type: "json" });
+      if (gv && gv.game && (gv.game.running || !gv.game.fullDone)) {
+        Object.assign(gv.game, { running: false, fullDone: true, halfDone: true, started: true, pending: null });
+        await store.setJSON(gk, { rev: (gv.rev || 0) + 1, game: gv.game, at: now });
+      }
+      return json({ ok: true, now, final: f });
+    }
+
     if (kind === "verify") return json({ ok: true, now, master: who === "master" });
 
     if (kind === "config") {
@@ -117,10 +155,12 @@ export default async (req) => {
       if (!okGid(b.gid) || !b.game || typeof b.game !== "object") return json({ error: "bad request" }, 400);
       if (JSON.stringify(b.game).length > 400000) return json({ error: "too large" }, 413);
       const key = "game-" + team + "-" + b.gid;
-      const cur = await store.get(key, { type: "json" });
+      const [cur, lock] = await Promise.all([store.get(key, { type: "json" }), store.get("lock-" + team + "-" + b.gid, { type: "json" })]);
       const rev = ((cur && cur.rev) || 0) + 1;
+      // A game with an official result stays finished; stats and notes can still be added.
+      if (lock) Object.assign(b.game, { running: false, fullDone: true, halfDone: true, started: true, pending: null });
       await store.setJSON(key, { rev, game: b.game, at: now });
-      return json({ ok: true, now, rev });
+      return json({ ok: true, now, rev, locked: !!lock });
     }
 
     if (kind === "club") {
@@ -154,9 +194,12 @@ export default async (req) => {
         (c.players || []).forEach((p) => (pname[p.id] = p.name));
         const games = await Promise.all(
           (c.games || []).slice(0, 80).map(async (g) => {
-            const v = g && okGid(g.id) ? await store.get("game-" + t.id + "-" + g.id, { type: "json" }) : null;
+            const [v, lock] = g && okGid(g.id)
+              ? await Promise.all([store.get("game-" + t.id + "-" + g.id, { type: "json" }), store.get("lock-" + t.id + "-" + g.id, { type: "json" })])
+              : [null, null];
+            const sum = v && v.game ? summarize(v.game, pname) : lock ? summarize({}, pname) : null;
             return { id: g.id, title: g.title || "", oppLogo: typeof g.oppLogo === "string" ? g.oppLogo : "", opp: g.opp || "", dt: g.dt || "", when: g.when || "", field: g.field || "", place: g.place || "", event: typeof g.event === "string" ? g.event.slice(0, 60) : "",
-              half: g.half || 30, s: v && v.game ? summarize(v.game, pname) : null };
+              half: g.half || 30, s: sum ? applyLock(sum, lock) : null };
           })
         );
         return { id: t.id, name: c.name || t.name, short: c.short || "", sub: c.sub || "", logo: c.logo || null, format: c.format || "", placing: c.placing || null, games };
@@ -176,15 +219,18 @@ export default async (req) => {
   const config = await store.get("team-" + team, { type: "json" });
   const games = {};
   const pstats = {};
+  const locks = {};
   if (config && config.team && Array.isArray(config.team.games)) {
     await Promise.all(
       config.team.games.slice(0, 80).map(async (g) => {
         if (!g || !okGid(g.id)) return;
-        const [v, ps] = await Promise.all([
+        const [v, ps, lock] = await Promise.all([
           store.get("game-" + team + "-" + g.id, { type: "json" }),
           g.imported ? null : store.get("pstats-" + team + "-" + g.id, { type: "json" }),
+          store.get("lock-" + team + "-" + g.id, { type: "json" }),
         ]);
         if (v) games[g.id] = v;
+        if (lock) locks[g.id] = { us: lock.us, them: lock.them, pk: lock.pk || null, src: lock.src, note: lock.note || "", at: lock.at };
         if (ps && ps.length) pstats[g.id] = ps.map((x) => ({ id: x.id, k: x.k, t: x.t, u: x.u }));
       })
     );
@@ -196,7 +242,7 @@ export default async (req) => {
     legacy = old.map((x) => (x && x.game ? x.game : null));
     if (!legacy.some(Boolean)) legacy = null;
   }
-  return json({ now, team, config: config || null, games, pstats, legacy });
+  return json({ now, team, config: config || null, games, pstats, locks, legacy });
 };
 
 export const config = { path: "/api/state" };

@@ -3,5 +3,8 @@
   "private": true,
   "dependencies": {
     "@netlify/blobs": "8.1.0"
+  },
+  "scripts": {
+    "test": "node --import ./tests/register.mjs --test tests/*.test.mjs"
   }
 }

@@ -335,6 +335,14 @@ details.posren{margin-top:10px}details.posren summary{cursor:pointer;font:700 17
 .gameinfo .cd{font-weight:700;color:var(--crimson)}
 .maplink{border:1px solid var(--line);border-radius:20px;padding:3px 12px;color:var(--ink);text-decoration:none;font-weight:600;font-size:13.5px;background:var(--surface-2)}
 .songrow{gap:8px;flex-wrap:wrap}
+.offck{color:#1a7f37;font-weight:700}
+.official{grid-column:1/-1;text-align:center;font:600 14px "Barlow",sans-serif;color:#1a7f37}
+.linkb{background:none;border:0;color:var(--crimson);font:600 14px "Barlow",sans-serif;text-decoration:underline;padding:0 4px;cursor:pointer}
+.offform{grid-column:1/-1;background:var(--surface-2);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.offrow{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;justify-content:center}
+.offrow label{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--muted)}
+.offrow input,.offrow select{min-height:42px;border:1.5px solid var(--line);border-radius:10px;padding:0 8px;font:600 18px "Barlow",sans-serif;background:var(--surface);color:var(--ink)}
+.offrow input[type=number]{width:70px;text-align:center}.pkin{display:flex;gap:4px;align-items:center}.pkin input{width:56px!important}
 .optb{border:1.5px solid var(--line);background:var(--surface-2);border-radius:10px;min-height:44px;padding:0 12px;font:700 17px "Barlow Condensed",sans-serif}
 .optb.ok{background:var(--pitch);border-color:var(--pitch);color:#fff}
 .optb.skip{color:var(--muted)}
@@ -1156,6 +1164,7 @@ function applyServer(j){
   if(!j||j.team!==S.team||SY.team!==S.team)return;
   PST.srv[S.team]=j.pstats||{};
   const ts=TS();let changed=false;const first=SY.first;
+  const nl=j.locks||{};if(JSON.stringify(nl)!==JSON.stringify(ts.locks||{})){ts.locks=nl;changed=true;}
   const busy=k=>SY.inflight[k]||Date.now()-(SY.editT[k]||0)<1500;
   if(j.config&&j.config.team){
     if(!busy('cfg')&&(first||(SY.rev.cfg||0)<j.config.rev)){
@@ -1235,7 +1244,7 @@ function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').rep
 const PUB_VER='2026-10-23a';
 /* APP_VER changes with every deploy that coach devices should pick up. When the published page's APP_VER
    differs from the running one, a coach device reloads itself if no clock is running, or shows a Refresh button. */
-const APP_VER='2026-10-23c';
+const APP_VER='2026-10-24a';
 const VER={tag:null,ready:false};
 async function checkVersion(){
   if(!SY.on||!canEdit()||document.visibilityState!=='visible')return;
@@ -1489,6 +1498,14 @@ function act(a,ds){
   switch(a){
     case 'editor':S.auth={};delete S.master;saveLocal();resetSync();SY.first=false;say('This device is now view only');break;
     case 'unlock':unlock();return;
+    case 'offopen':{const gc=GC(),lk=lockOf(gc),sc=scoreOf(g),ps=g.pk?pkScore(g):null;const b=lk||Object.assign({},sc,ps?{pk:ps}:{});
+      UI.conf={gid:gc.id,us:b.us,them:b.them,pku:b.pk?b.pk.us:'',pkt:b.pk?b.pk.them:'',src:lk?lk.src:'SincSports',note:lk?lk.note:''};break;}
+    case 'offcancel':UI.conf=null;break;
+    case 'offsave':{const v=id=>($(id)||{}).value;const n=x=>Math.max(0,Math.min(99,parseInt(x,10)||0));
+      const f={us:n(v('off-us')),them:n(v('off-them')),src:v('off-src')||'Other',note:(v('off-note')||'').trim()};
+      if(String(v('off-pku')).trim()!==''&&String(v('off-pkt')).trim()!=='')f.pk={us:n(v('off-pku')),them:n(v('off-pkt'))};
+      setFinal(GC(),f);return;}
+    case 'offdel':if(armed('offdel')){UI.arm=null;setFinal(GC(),null);return;}arm('offdel');say('Tap again to remove the official result');break;
     case 'song':S.song=!songOn();saveLocal();if(S.song){primeSong();say('Goal song on for this device');}else{try{songAudio().pause();}catch(e){}say('Goal song off for this device');}break;
     case 'fmode':UI.fieldMode=ds.m;UI.sel=null;break;
     case 'sheetclose':UI.sheet=null;break;
@@ -1651,7 +1668,24 @@ document.addEventListener('change',e=>{
 });
 
 /* ---------- Rendering ---------- */
+/* Official result (confirmed from SincSports, the ref, etc.): saved on the server apart from the game,
+   so no phone can change it. It wins over the tracked score everywhere. */
+const lockOf=gc=>{const ts=TS();return (ts&&ts.locks&&gc&&ts.locks[gc.id])||null;};
+const lockStr=lk=>lk.us+'–'+lk.them+(lk.pk?', PKs '+lk.pk.us+'–'+lk.pk.them:'');
+const OFF_SRC=['SincSports','GotSport','Referee','League','Tournament site','Coach','Other'];
+async function setFinal(gc,final){
+  const ts=TS();const team=S.team;
+  if(!SY.on){ts.locks=ts.locks||{};if(final)ts.locks[gc.id]=Object.assign({},final,{at:Date.now()});else delete ts.locks[gc.id];UI.conf=null;say(final?'Official result saved':'Official result removed');saveLocal();renderAll();return;}
+  const lk=lockOf(gc);const code=lk?(S.master||''):(myCode()||S.master||'');
+  try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'final',team,gid:gc.id,final,code})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok){ts.locks=ts.locks||{};if(j.final)ts.locks[gc.id]=j.final;else delete ts.locks[gc.id];UI.conf=null;say(final?'Official result locked':'Official result removed');saveLocal();}
+    else say(r.status===403?'Only the main coach code can change an official result':j.error||'Could not save the result');}
+  catch(e){say('No connection. Try again in a moment.');}
+  renderAll();
+}
 function status(gc){
+  const lk=lockOf(gc);if(lk)return 'Final ('+lockStr(lk)+') ✓';
   const g=stateOf(gc);const sc=scoreOf(g);const pk=g.pk?', PKs '+pkScore(g).us+'–'+pkScore(g).them:'';const ss=' ('+sc.us+'–'+sc.them+pk+')';
   if(g.fullDone)return 'Final'+ss;
   if(!g.started)return whenText(gc);
@@ -1715,13 +1749,13 @@ function renderCtrl(){
       <div class="adjc"><button class="btn small danger-s ${armed('reset')?'armed':''}" data-act="reset">${armed('reset')?'Tap again to reset':'Reset '+esc(GC().title)}</button></div></div>`;}
 }
 function renderScore(){
-  const g=G();const gc=GC();const sc=scoreOf(g);const ed=canEdit();const d=replay(g);
+  const g=G();const gc=GC();const sc=scoreOf(g);const ed=canEdit();const d=replay(g);const lk=lockOf(gc);const shown=lk||sc;
   const key=S.team+'/'+gc.id;
   if(UI.lastUs!==undefined&&UI.lastKey===key&&sc.us>UI.lastUs)playSong();
   UI.lastUs=sc.us;UI.lastKey=key;
   const pmb=side=>ed?`<span class="pm"><button class="gbtn2" data-act="goal${side}">+ Goal</button><button class="mbtn ${armed('minus'+side)?'armed':''}" data-act="goalminus" data-side="${side}" aria-label="Take off a goal">−</button></span>`:'';
   let h=`<div class="scorebar"><div class="side us"><div class="tmrow">${logoImg(CFG().logo,'slg')}<span class="tm">${esc(shortName())}</span></div>${pmb('us')}</div>
-    <div class="sbsc"><span class="num">${sc.us}</span><span class="dash">–</span><span class="num">${sc.them}</span></div>
+    <div class="sbsc"><span class="num">${shown.us}</span><span class="dash">–</span><span class="num">${shown.them}</span></div>
     <div class="side them"><div class="tmrow">${logoImg(oppLogoOf(gc),'slg')}<span class="tm">${esc(oppName())}</span></div>${pmb('them')}</div>`;
   if(!g.started){
     const cd=countdown(gc);
@@ -1731,6 +1765,16 @@ function renderScore(){
   if(hasSong())row.push(`<button class="snd ${songOn()?'on':''}" data-act="song" aria-pressed="${songOn()}">${songOn()?'🔊 Goal song on':'🔈 Tap to turn on the goal song'}</button>`);
   if(ed&&g.started&&!g.fullDone&&d.L.GK)row.push(`<button class="snd on" data-act="save">🧤 + Save (${esc(nm(d.L.GK))})</button>`);
   if(row.length)h+=`<div class="songrow">${row.join('')}</div>`;
+  if(lk)h+=`<div class="official">✓ Official result${lk.pk?' (PKs '+lk.pk.us+'–'+lk.pk.them+')':''} · ${esc(lk.src)}${lk.note?' · '+esc(lk.note):''}${(lk.us!==sc.us||lk.them!==sc.them)&&ed?` <span class="muted">(tracked ${sc.us}–${sc.them})</span>`:''}
+    ${ed&&S.master&&!UI.conf?' <button class="linkb" data-act="offopen">Change</button>':''}</div>`;
+  else if(ed&&g.fullDone&&!UI.conf)h+=`<div class="pkbtns"><button class="optb" data-act="offopen">✓ Confirm official result</button></div>`;
+  if(ed&&UI.conf&&UI.conf.gid===gc.id){const f=UI.conf;
+    h+=`<div class="offform"><div class="q">Official result${lk?'':' (locks the score; only the main code can change it later)'}</div>
+      <div class="offrow"><label>${esc(shortName())}<input id="off-us" type="number" min="0" max="99" inputmode="numeric" value="${f.us}"></label><span class="dash">–</span><label>${esc(oppName())}<input id="off-them" type="number" min="0" max="99" inputmode="numeric" value="${f.them}"></label></div>
+      <div class="offrow"><label>PKs (if any)<span class="pkin"><input id="off-pku" type="number" min="0" max="30" inputmode="numeric" value="${f.pku}" placeholder="–"><span>–</span><input id="off-pkt" type="number" min="0" max="30" inputmode="numeric" value="${f.pkt}" placeholder="–"></span></label>
+        <label>Confirmed by<select id="off-src">${OFF_SRC.map(x=>`<option ${x===f.src?'selected':''}>${x}</option>`).join('')}</select></label></div>
+      <label class="fld">Note (optional)<input id="off-note" maxlength="120" value="${esc(f.note||'')}" placeholder="e.g. score from the SincSports results page"></label>
+      <div class="pkbtns"><button class="optb ok" data-act="offsave">Lock official result</button>${lk&&S.master?'<button class="optb" data-act="offdel">Remove official result</button>':''}<button class="optb skip" data-act="offcancel">Cancel</button></div></div>`;}
   const ours=g.goals.filter(x=>x.side==='us');
   if(ours.length&&!g.imported)h+=`<div class="scorers">${ours.map(x=>`${esc(x.by?nm(x.by):'Goal')} ${tmin(g,x.t)}${x.ast?' (assist '+esc(nm(x.ast))+')':''}`).join(', ')}</div>`;
   if(ed&&g.fullDone&&!g.pk&&sc.us===sc.them){
@@ -2203,7 +2247,9 @@ function summarizeGame(g,pname){
 function localClub(){
   const teams=Object.keys(S.T).filter(id=>S.T[id].cfg).map(id=>{const c=S.T[id].cfg;const pname={};c.players.forEach(p=>pname[p.id]=p.name);
     return {id,name:c.name,short:c.short||'',sub:c.sub||'',logo:c.logo||null,format:c.format,
-      games:c.games.map(gc=>{const st=S.T[id].games[gc.id];return {id:gc.id,title:gc.title,oppLogo:gc.oppLogo||'',opp:gc.opp||'',dt:gc.dt||'',when:gc.when||'',field:gc.field||'',place:gc.place||'',event:gc.event||'',half:gc.half||30,s:st?summarizeGame(st,pname):null};})};});
+      games:c.games.map(gc=>{const st=S.T[id].games[gc.id];const lk=S.T[id].locks&&S.T[id].locks[gc.id];let sm=st?summarizeGame(st,pname):null;
+        if(lk)sm=Object.assign(sm||{started:true,scorers:[]},{started:true,running:false,fullDone:true,us:lk.us,them:lk.them,pk:lk.pk||null,official:{src:lk.src}});
+        return {id:gc.id,title:gc.title,oppLogo:gc.oppLogo||'',opp:gc.opp||'',dt:gc.dt||'',when:gc.when||'',field:gc.field||'',place:gc.place||'',event:gc.event||'',half:gc.half||30,s:sm};})};});
   return {club:S.club||null,teams};
 }
 async function clubFetch(){
@@ -2240,7 +2286,7 @@ function renderClub(){
   const recOf=t=>{let w=0,l=0,dr=0;t.games.forEach(g=>{if(!inSeason({g}))return;const r=sResult(g.s);if(r==='W')w++;else if(r==='L')l++;else if(r==='D')dr++;});return `${w}-${dr}-${l}`;};
   const status=(t,g)=>{const s=g.s;
     if(s&&s.started&&!s.fullDone)return `<span class="gl-live"><b>${s.us}–${s.them}</b> <span data-ck="${t.id}/${g.id}">${fmtClock(sClock(s))}</span> <span class="per" data-cp="${t.id}/${g.id}">${sPeriod(s)}</span></span>`;
-    if(s&&s.fullDone){const r=sResult(s);return `<span class="res r${r}">${r}</span> <b class="glsc">${scoreStr(s)}</b>`;}
+    if(s&&s.fullDone){const r=sResult(s);return `<span class="res r${r}">${r}</span> <b class="glsc">${scoreStr(s)}</b>${s.official?' <span class="offck" title="Official result">✓</span>':''}`;}
     const cd=countdown(g);return cd?`<span class="cd" data-kick="${esc(g.dt)}">${cd}</span>`:'';};
   // Games view: every team's games from a week back to a week ahead, whatever the event, grouped by day.
   const day0=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
@@ -2265,7 +2311,7 @@ function renderClub(){
     h+=`<section class="cs"><h2>Coming up</h2>${ahead.length?dayGroups(ahead,false):'<p class="muted">No games in the next week.</p>'}</section>`;
     h+=`<section class="cs"><h2>Results this past week</h2>${back.length?dayGroups(back,true):'<p class="muted">No games in the last week.</p>'}</section>`;
     if(older.length)h+=`<section class="cs"><h2>Earlier this season</h2><div class="clist">`+older.slice(0,40).map(({t,g})=>{const s=g.s;const r=sResult(s);
-      return `<a class="crow" href="${gameLink(t.id,g.id)}">${teamBadge(t,'cls')}<div class="cinfo"><b>${esc(t.short||t.name)}</b> vs ${esc(g.opp||'Opponent')}${logoImg(oppLogoOf(g),'ilg')}<div class="fine">${esc(whenText(g))} ${evTag(g)}${s.scorers.length?'<br>'+s.scorers.map(x=>esc(x.by||'Goal')).join(', '):''}</div></div><span class="res r${r}">${r}</span><span class="cfinal">${scoreStr(s)}</span></a>`;}).join('')+'</div></section>';
+      return `<a class="crow" href="${gameLink(t.id,g.id)}">${teamBadge(t,'cls')}<div class="cinfo"><b>${esc(t.short||t.name)}</b> vs ${esc(g.opp||'Opponent')}${logoImg(oppLogoOf(g),'ilg')}<div class="fine">${esc(whenText(g))} ${evTag(g)}${s.scorers.length?'<br>'+s.scorers.map(x=>esc(x.by||'Goal')).join(', '):''}</div></div><span class="res r${r}">${r}</span><span class="cfinal">${scoreStr(s)}${s.official?' <span class="offck" title="Official result">✓</span>':''}</span></a>`;}).join('')+'</div></section>';
   }else{
     const teams=d.teams.slice().sort((a,b)=>a.name.localeCompare(b.name));
     h+=`<section class="cs"><h2>Teams</h2><div class="clist">`+teams.map(t=>{const on=t.games.some(g=>g.s&&g.s.started&&!g.s.fullDone);
