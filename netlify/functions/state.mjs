@@ -1,4 +1,5 @@
 import { getStore } from "@netlify/blobs";
+import { snapshot, listHistory, getSnapshot, gameSummary, gameLosesData, cfgSummary, cfgLosesData, restoreGame } from "../lib/history.mjs";
 
 // Shared state for the game tracker (multiple teams).
 // GET  /api/state?team=ID   -> { now, team, config:{rev,team}|null, games:{gid:{rev,game}}, legacy }
@@ -12,6 +13,8 @@ import { getStore } from "@netlify/blobs";
 //                  { kind:'pstat',   team, gid, stat:{id,k,t,u,dv} }  (no code: parents add positive stats only)
 //                  { kind:'pstatdel', team, gid, u, dv, code? }  (the device that added it, or a coach)
 //                  { kind:'final',   team, gid, final:{us,them,pk?,src,note?}|null, code }
+//                  { kind:'history', team, gid? , code }          (earlier versions of a game, or of the team setup)
+//                  { kind:'restore', team, gid?, at, code }       (put an earlier version back; the current one is kept in history)
 //                      Official result. Any coach code can confirm one; changing or removing it takes the main code.
 // Official results live in their own blob (lock-TEAM-GID). Game saves can't change them: the official
 // score wins in every summary, and a locked game is always saved as finished.
@@ -136,12 +139,42 @@ export default async (req) => {
 
     if (kind === "verify") return json({ ok: true, now, master: who === "master" });
 
+    if (kind === "history") {
+      if (b.gid != null && !okGid(b.gid)) return json({ error: "bad request" }, 400);
+      const key = b.gid ? "hist-game-" + team + "-" + b.gid : "hist-team-" + team;
+      return json({ ok: true, now, history: await listHistory(store, key) });
+    }
+    if (kind === "restore") {
+      if (b.gid != null && !okGid(b.gid)) return json({ error: "bad request" }, 400);
+      const key = b.gid ? "hist-game-" + team + "-" + b.gid : "hist-team-" + team;
+      const snap = await getSnapshot(store, key, Number(b.at));
+      if (!snap) return json({ error: "That version is gone" }, 404);
+      if (b.gid) {
+        const gk = "game-" + team + "-" + b.gid;
+        const cur = await store.get(gk, { type: "json" });
+        if (cur && cur.game) await snapshot(store, key, { at: now, rev: cur.rev, by: who, why: "before a restore", sum: gameSummary(cur.game), game: cur.game }, { force: true, minGapMs: 0 });
+        const game = restoreGame(snap.game, cur && cur.game);
+        const rev = ((cur && cur.rev) || 0) + 1;
+        await store.setJSON(gk, { rev, game, at: now });
+        return json({ ok: true, now, rev, game });
+      }
+      const cur = await store.get("team-" + team, { type: "json" });
+      if (cur && cur.team) await snapshot(store, key, { at: now, rev: cur.rev, by: who, why: "before a restore", sum: cfgSummary(cur.team), team: cur.team }, { force: true, minGapMs: 0 });
+      const rev = ((cur && cur.rev) || 0) + 1;
+      await store.setJSON("team-" + team, { rev, team: snap.team, at: now });
+      return json({ ok: true, now, rev, config: snap.team });
+    }
+
     if (kind === "config") {
       if (!b.config || typeof b.config !== "object") return json({ error: "bad request" }, 400);
       if (JSON.stringify(b.config).length > 1500000) return json({ error: "too large" }, 413);
       const cur = await store.get("team-" + team, { type: "json" });
       if (!cur && who !== "master") return json({ error: "only the main code can create teams" }, 403);
       const rev = ((cur && cur.rev) || 0) + 1;
+      if (cur && cur.team) {
+        const lose = cfgLosesData(cur.team, b.config);
+        await snapshot(store, "hist-team-" + team, { at: now, rev: cur.rev, by: who, why: lose ? "before a save that removed items" : "", sum: cfgSummary(cur.team), team: cur.team }, { force: lose, minGapMs: 10 * 60000 });
+      }
       await store.setJSON("team-" + team, { rev, team: b.config, at: now });
       const idx = (await store.get("teams", { type: "json" })) || [];
       const name = String(b.config.name || team).slice(0, 80);
@@ -159,6 +192,10 @@ export default async (req) => {
       const rev = ((cur && cur.rev) || 0) + 1;
       // A game with an official result stays finished; stats and notes can still be added.
       if (lock) Object.assign(b.game, { running: false, fullDone: true, halfDone: true, started: true, pending: null });
+      if (cur && cur.game) {
+        const lose = gameLosesData(cur.game, b.game);
+        await snapshot(store, "hist-game-" + team + "-" + b.gid, { at: now, rev: cur.rev, by: who, why: lose ? "before a save that removed data" : "", sum: gameSummary(cur.game), game: cur.game }, { force: lose, minGapMs: 3 * 60000 });
+      }
       await store.setJSON(key, { rev, game: b.game, at: now });
       return json({ ok: true, now, rev, locked: !!lock });
     }

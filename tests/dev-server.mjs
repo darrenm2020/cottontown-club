@@ -8,11 +8,13 @@ process.env.COACH_CODE ||= "master-code";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fn = async (f) => (await import(path.join(root, "netlify/functions", f))).default;
 const coachMod = await import(path.join(root, "netlify/functions/coach.mjs"));
+const helpMod = await import(path.join(root, "netlify/functions/help.mjs"));
 const routes = { "/api/state": await fn("state.mjs"), "/api/cal": await fn("cal.mjs"), "/api/club": await fn("club.mjs") };
 const fakeAI = {
   beta: { messages: { create: async (p) => fakeReply(p) } }, messages: { create: async (p) => fakeReply(p) },
 };
 function fakeReply(p) {
+  if (p.output_config.format.schema.properties.answer) return { stop_reason: "end_turn", model: p.model, content: [{ type: "text", text: JSON.stringify({ answer: "Go to Setup, then Fix a problem, and tap Earlier versions of this game. Pick the version from before the reset and tap Restore.", escalate: false }) }] };
   const play = p.output_config.format.schema.properties.steps;
   const obj = play ? { title: "Overlap on the left", field: "half", notes: "Fake play", objects: [{ id: "lb", kind: "us", label: "LB" }, { id: "lm", kind: "us", label: "LM" }, { id: "d", kind: "them", label: "" }, { id: "ball", kind: "ball", label: "" }],
       steps: [{ caption: "LM has the ball, LB starts the overlap", pos: [{ id: "lb", x: 15, y: 80 }, { id: "lm", x: 20, y: 55 }, { id: "d", x: 25, y: 45 }, { id: "ball", x: 22, y: 56 }], arrows: [{ kind: "run", from: { x: 15, y: 80 }, to: { x: 10, y: 35 } }] },
@@ -22,6 +24,9 @@ function fakeReply(p) {
   return { stop_reason: "end_turn", model: p.model, content: [{ type: "text", text: JSON.stringify(obj) }] };
 }
 routes["/api/coach"] = (req) => coachMod.handle(req, process.env.FAKE_AI ? { client: fakeAI } : {});
+routes["/api/help"] = (req) => helpMod.handle(req, process.env.FAKE_AI ? { client: fakeAI } : {});
+routes["/api/admin"] = await fn("admin.mjs");
+routes["/api/report"] = await fn("report.mjs");
 const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".svg": "image/svg+xml" };
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://localhost");

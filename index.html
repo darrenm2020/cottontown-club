@@ -349,6 +349,8 @@ b.btitle{border:0;padding:0}.bfield button{min-height:36px;padding:0 10px;font-s
 .bsel{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:14px;margin:4px 0}.bsel input{width:80px;min-height:36px;border:1.5px solid var(--line);border-radius:8px;padding:0 8px}
 .bai{margin-top:10px;display:flex;flex-direction:column;gap:6px;background:var(--surface-2);border-radius:12px;padding:10px}.bai textarea{border:1.5px solid var(--line);border-radius:10px;padding:8px;font:500 15px "Barlow",sans-serif;background:var(--surface);color:var(--ink)}
 .bai .btn{align-self:flex-start}
+.tdone{opacity:.55}.histlist{margin-top:8px}
+.hubg b{position:relative}.hubg .hubdot{top:-8px;right:-14px}
 .hubbtn{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;width:58px;height:58px;border-radius:50%;border:0;background:var(--crimson);color:#fff;font-size:26px;box-shadow:0 6px 18px rgba(0,0,0,.25);cursor:pointer}
 .hubdot{position:absolute;top:-2px;right:-2px;min-width:22px;height:22px;border-radius:11px;background:#ffd34d;color:#111;font:700 13px/22px "Barlow",sans-serif;padding:0 5px}
 .hub{position:fixed;inset:0;z-index:60;background:var(--bg,var(--surface-2));display:flex;flex-direction:column}.hub[hidden]{display:none}
@@ -1213,7 +1215,7 @@ async function push(key){
     if(r.status===401){delete S.auth[team];saveLocal();say('Coach code was not accepted. This device is now view only.');rerender=true;}
     else if(r.status===403){SY.lastSent[key]='';say('Creating a team on the live site needs the main coach code.');rerender=true;}
     else if(r.ok){const j=await r.json();if(SY.team===team&&j.rev>(SY.rev[key]||0))SY.rev[key]=j.rev;SY.ok=true;SY.savedAt=Date.now();setTimeout(renderSync,3100);}
-    else{SY.ok=false;SY.lastSent[key]='';}
+    else{SY.ok=false;SY.lastSent[key]='';reportProblem('Save failed ('+r.status+') for '+(key==='cfg'?'team setup':'a game'));}
   }catch(e){SY.ok=false;SY.lastSent[key]='';}
   SY.inflight[key]--;SY.editT[key]=Date.now();
   if(rerender)renderAll();else renderSync();
@@ -1305,7 +1307,7 @@ function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').rep
 const PUB_VER='2026-10-23a';
 /* APP_VER changes with every deploy that coach devices should pick up. When the published page's APP_VER
    differs from the running one, a coach device reloads itself if no clock is running, or shows a Refresh button. */
-const APP_VER='2026-10-24d';
+const APP_VER='2026-10-24e';
 const VER={tag:null,ready:false};
 async function checkVersion(){
   if(!SY.on||!canEdit()||document.visibilityState!=='visible')return;
@@ -1593,6 +1595,10 @@ function act(a,ds){
     case 'cmfollow':UI.coachDraft='';UI.focus='coach-q';say('Ask your follow-up. The committee remembers this conversation.');break;
     case 'cmdel':{const log=coachLog();log.splice(+ds.i,1);saveLocal();break;}
     case 'cmboard':{const x=coachLog()[+ds.i];if(x&&x.a.chair.session[0]){UI.board=UI.board||{};UI.boardAsk=x.a.chair.session[0].name+': '+x.a.chair.session[0].setup;S.tab='board';say('Describe the drill to the board AI, or press Draw it');}break;}
+    case 'histgame':loadHist(($('fix-game')||{}).value||GC().id);return;
+    case 'histteam':loadHist('team');return;
+    case 'histclose':UI.hist=null;break;
+    case 'histrestore':if(armed('hist'+ds.at)){UI.arm=null;restoreHist(+ds.at);return;}arm('hist'+ds.at);break;
     case 'song':S.song=!songOn();saveLocal();if(S.song){primeSong();say('Goal song on for this device');}else{try{songAudio().pause();}catch(e){}say('Goal song off for this device');}break;
     case 'fmode':UI.fieldMode=ds.m;UI.sel=null;break;
     case 'sheetclose':UI.sheet=null;break;
@@ -1799,7 +1805,7 @@ function renderBrand(){
   document.title=c.name+' game tracker';
 }
 function renderGames(){
-  $('games').innerHTML=`<a class="gbtn clubbtn" href="${clubLink()}"><b>‹ Club</b><small>All teams</small></a>`+CFG().games.map((gc,i)=>gc.imported&&i!==curIdx()&&!(Date.now()-new Date(gc.dt).getTime()<7*864e5)?'':`<button class="gbtn" data-act="game" data-i="${i}" aria-pressed="${i===curIdx()}"><b>${esc(gc.title)}</b><small data-lv="gstat" data-i="${i}">${esc(status(gc))}</small></button>`).join('');
+  $('games').innerHTML=`<a class="gbtn clubbtn" href="${clubLink()}"><b>‹ Club</b><small>All teams</small></a>`+(location.protocol.startsWith('http')?`<button class="gbtn clubbtn hubg" id="hubmini" data-hact="open" aria-label="Messages and fees"><b>💬${H.unread?`<span class="hubdot">${H.unread}</span>`:''}</b><small>Messages</small></button>`:'')+CFG().games.map((gc,i)=>gc.imported&&i!==curIdx()&&!(Date.now()-new Date(gc.dt).getTime()<7*864e5)?'':`<button class="gbtn" data-act="game" data-i="${i}" aria-pressed="${i===curIdx()}"><b>${esc(gc.title)}</b><small data-lv="gstat" data-i="${i}">${esc(status(gc))}</small></button>`).join('');
 }
 function renderClock(){
   const g=G();const c=clock(g);const H=HMS(g),SUB=SMS(g);const r=regOf(g,c),xs=stopIn(g,c),E=ends(g);
@@ -2158,9 +2164,30 @@ function renderMinutes(){
   h+=keeperHTML(keeperStats(games.map((x,i)=>({g:x.g,rep:reps[i]}))),'Keepers, all games');
   return h;
 }
+/* ---------- Fix a problem: restore an earlier version of a game or of the team setup ---------- */
+async function histCall(body){try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({team:S.team,code:myCode()||S.master||''},body))});
+  const j=await r.json().catch(()=>({}));return r.ok?j:{error:j.error||'Couldn’t reach the server'};}catch(e){return {error:'No connection. Try again.'};}}
+async function loadHist(which){UI.hist={which,list:null};renderAll();const j=await histCall(which==='team'?{kind:'history'}:{kind:'history',gid:which});
+  UI.hist={which,list:j.error?[]:j.history,error:j.error};renderAll();}
+async function restoreHist(at){const w=UI.hist&&UI.hist.which;if(!w)return;const j=await histCall(w==='team'?{kind:'restore',at}:{kind:'restore',gid:w,at});
+  if(j.error){say(j.error);renderAll();return;}
+  // Take the server's copy as-is (no merge), so the restored version wins on this device too.
+  resetSync();try{const st=await getState(S.team);applyServer(st);}catch(e){SY.first=false;}
+  UI.hist=null;say(w==='team'?'Team setup restored':'Game restored. Every phone picks it up in a few seconds.');renderAll();}
+function fixHTML(){const c=CFG();if(!SY.on)return '';const hs=UI.hist;
+  let h=`<div class="card"><h3>Fix a problem</h3><p class="fine" style="margin-top:-4px">Put back an earlier version after an accidental reset, a lost goal, or a deleted game or player. The current version is kept, so a restore can be undone too.</p>
+    <div class="calbtns"><select id="fix-game">${c.games.filter(gc=>!gc.imported||TS().games[gc.id]).map((gc,i)=>`<option value="${esc(gc.id)}" ${gc.id===GC().id?'selected':''}>${esc(gc.title)}${gc.opp?' vs '+esc(gc.opp):''}</option>`).join('')}</select><button class="btn small" data-act="histgame">Earlier versions of this game</button><button class="btn small" data-act="histteam">Earlier team setups</button></div>`;
+  if(hs){h+=`<div class="histlist">`;
+    if(!hs.list)h+='<p class="muted">Loading…</p>';else if(hs.error)h+=`<p class="muted">${esc(hs.error)}</p>`;else if(!hs.list.length)h+='<p class="muted">No earlier versions saved yet. They’re kept from now on.</p>';
+    else hs.list.forEach(x=>{const s=x.sum||{};const when=new Date(x.at).toLocaleString('en-US',{weekday:'short',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
+      const what=hs.which==='team'?`${s.games} games, ${s.players} players${s.events?', '+s.events+' practices/events':''}`:`${s.started?(s.done?'Final ':'In progress ')+s.us+'–'+s.them:'Not started'}${s.started?', clock '+fmt(s.acc||0):''}, ${s.goals} goal${s.goals===1?'':'s'}, ${s.events} sub${s.events===1?'':'s'}`;
+      h+=`<div class="srow"><div class="sinfo"><b>${esc(when)}</b><div class="fine">${esc(what)}${x.why?' · '+esc(x.why):''}</div></div><button class="btn small ${armed('hist'+x.at)?'danger-s armed':''}" data-act="histrestore" data-at="${x.at}">${armed('hist'+x.at)?'Tap again to restore':'Restore'}</button></div>`;});
+    h+=`<button class="btn small" data-act="histclose">Close</button></div>`;}
+  return h+'</div>';}
 function renderSetup(){
   const c=CFG();let h='';
   h+=`<p class="savednote">Changes save on their own when you tap out of a box. Watch the badge above the clock: Saving… then ✓ Saved.</p>`;
+  h+=fixHTML();
   h+=`<div class="card"><h3>Team</h3>
     <label class="fld">Team name<input data-cfg="team" data-f="name" value="${esc(c.name)}"></label>
     <div class="grid2"><label class="fld">Short name for the scoreboard<input data-cfg="team" data-f="short" value="${esc(c.short||'')}"></label><label class="fld">Subtitle<input data-cfg="team" data-f="sub" value="${esc(c.sub||'')}" placeholder="e.g. Girls 2014/15"></label></div>
@@ -2673,6 +2700,7 @@ function renderClub(){
       return `<a class="crow" href="${teamLink(t.id)}">${teamBadge(t,'cl')}<div class="cinfo"><b>${esc(t.name)}</b>${t.placing?`<div class="cplace">${esc(placeText(t.placing))}</div>`:''}
         <div class="fine">${esc([t.sub,t.format].filter(Boolean).join(', '))}${t.games.some(g=>inSeason({g})&&g.s&&g.s.fullDone)?' · '+recOf(t)+' this season':''}${nx?`<br>Next: vs ${esc(nx.opp||nx.title||'TBD')}, ${esc(whenText(nx))}`:''}</div></div>${on?'<span class="livepill">Live</span>':'<span class="chev">›</span>'}</a>`;}).join('')+'</div></section>';
   }
+  if(CLUB.on&&S.master)h+=adminHTML();
   if(CLUB.on&&S.master){h+=`<section class="cs"><h2>Coach tools</h2><button class="btn small primary-s" data-cact="puball" ${UI.pubBusy?'disabled':''}>${UI.pubBusy?'Loading teams…':'Load all teams'}</button>${CLUB.msg?`<p class="fine">${esc(CLUB.msg)}</p>`:'<p class="fine">Adds every team saved on this iPad to the club page. Teams already here aren’t changed.</p>'}</section>`;}
   if(canClubEdit){
     h+=`<section class="cs"><h2>Club settings</h2>${CLUB.edit?`<div class="card"><label class="fld">Club name<input id="club-name" value="${esc(clubName())}"></label>
@@ -2696,6 +2724,10 @@ document.addEventListener('change',e=>{if(e.target&&e.target.id==='club-logo'){c
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-cact]');if(!b)return;const a=b.dataset.cact;
   if(a==='puball'){publishAll();return;}
   if(a==='view'){S.clubView=b.dataset.v;saveLocal();renderClub();return;}
+  if(a==='adm'){admLoad(b.dataset.t);return;}
+  if(a==='tkdone'){await admCall({kind:'ticket',id:b.dataset.id,done:b.dataset.done==='1'});admLoad('help');return;}
+  if(a==='bknow'){b.disabled=true;b.textContent='Backing up…';const j=await admCall({kind:'backupnow'});CLUB.msg=j.error||('Backed up '+j.count+' items');admLoad('backups');return;}
+  if(a==='bkdl'){const j=await admCall({kind:'backup',day:b.dataset.d});if(j.blob){const u=URL.createObjectURL(j.blob);const l=document.createElement('a');l.href=u;l.download='club-backup-'+b.dataset.d+'.json';l.click();}return;}
   if(a==='myteam'){const id=b.dataset.id;const m=Array.isArray(S.myTeams)?S.myTeams:[];S.myTeams=m.includes(id)?m.filter(x=>x!==id):m.concat(id);saveLocal();renderClub();return;}
   if(a==='edit'){CLUB.edit=true;clubLogoData=null;renderClub();return;}
   if(a==='cancel'){CLUB.edit=false;renderClub();return;}
@@ -2739,12 +2771,16 @@ function hubOpen(tab){H.open=true;H.tab=tab||H.tab;renderHub();hubRefresh(true);
 async function hubLoadFees(){const j=await hubApi('GET','?fees=1');if(!j.error){H.fees=j.fees;H.kinds=j.kinds;}else H.fees=[];renderHub();}
 
 function renderHubBtn(){let b=$$h('hubbtn');if(!b){b=document.createElement('button');b.id='hubbtn';b.className='hubbtn';b.setAttribute('data-hact','open');b.setAttribute('aria-label','Messages and fees');document.body.appendChild(b);}
-  b.hidden=!hubLive()||H.open;b.innerHTML='💬'+(H.unread?`<span class="hubdot">${H.unread}</span>`:'');}
+  // On team pages the button sits in the top bar so it never covers the tabs; the club page gets the round one.
+  const onTeam=new URLSearchParams(location.search).has('team')&&!new URLSearchParams(location.search).has('club');
+  const badge='💬'+(H.unread?`<span class="hubdot">${H.unread}</span>`:'');
+  b.hidden=!hubLive()||H.open||onTeam;b.innerHTML=badge;
+  const mini=$$h('hubmini');if(mini)mini.querySelector('b').innerHTML=badge;}
 function renderHub(){let el=$$h('hub');if(!el){el=document.createElement('div');el.id='hub';el.className='hub';document.body.appendChild(el);}
   el.hidden=!H.open;renderHubBtn();if(!H.open)return;
-  const me=myMem();let h=`<div class="hubtop"><b>${esc(clubName())}</b><div class="seg hubtabs">${me?[['msgs','Messages'+(H.unread?' ('+H.unread+')':'')],['fees','Fees'],['me','Me']].map(([t,l])=>`<button data-hact="tab" data-t="${t}" aria-pressed="${H.tab===t}">${l}</button>`).join(''):''}</div><button class="hubx" data-hact="close" aria-label="Close">✕</button></div>`;
+  const me=myMem();let h=`<div class="hubtop"><b>${esc(clubName())}</b><div class="seg hubtabs">${(me?[['msgs','Messages'+(H.unread?' ('+H.unread+')':'')],['fees','Fees'],['me','Me'],['help','Help']]:[['join','Join'],['help','Help']]).map(([t,l])=>`<button data-hact="tab" data-t="${t}" aria-pressed="${H.tab===t||(!me&&t==='join'&&H.tab!=='help')}">${l}</button>`).join('')}</div><button class="hubx" data-hact="close" aria-label="Close">✕</button></div>`;
   if(H.msg)h+=`<div class="hubmsg">${esc(H.msg)}</div>`;
-  h+=`<div class="hubbody">${!me?hubJoinHTML():H.tab==='fees'?hubFeesHTML():H.tab==='me'?hubMeHTML():H.ch?hubChHTML():hubInboxHTML()}</div>`;
+  h+=`<div class="hubbody">${H.tab==='help'?hubHelpHTML():!me?hubJoinHTML():H.tab==='fees'?hubFeesHTML():H.tab==='me'?hubMeHTML():H.ch?hubChHTML():hubInboxHTML()}</div>`;
   const ta=$$h('hub-text');const keep=ta?ta.value:null;const ae=document.activeElement&&document.activeElement.id;
   el.innerHTML=h;
   if(keep!=null&&$$h('hub-text'))$$h('hub-text').value=keep;if(ae&&$$h(ae)&&/^hub-/.test(ae))$$h(ae).focus();
@@ -2761,6 +2797,28 @@ function hubJoinHTML(){
     h+=`<h3>Messages and fees</h3>`+(coach?`<p class="fine">Join as a coach of ${esc((CFG()&&CFG().name)||'this team')} with the coach code on this device.</p><label class="fld">Your name<input id="hub-name" placeholder="e.g. Coach Darren" autocomplete="name"></label><button class="btn primary-s" data-hact="joincoach">Join as coach</button>`
       :`<p>Parents: open the invite link from your coach to join your team. Coaches: open your team and unlock it with your coach code first.</p>`);}
   return h+'</div>';}
+/* Help desk: the AI answers from the app's guide; anything it can't fix goes to the club admins. */
+const helpCtx=()=>{const me=myMem();const team=new URLSearchParams(location.search).get('team');
+  return {role:me?me.role:(team&&S.auth&&S.auth[team]?'coach':team?'parent':'visitor'),page:team?'team':'club',team:team&&CFG()?CFG().name:'',tab:team?S.tab:'',ver:APP_VER};};
+function hubHelpHTML(){const th=H.help||[];let h=`<div class="card"><h3>Help</h3><p class="fine" style="margin-top:-4px">Ask how to do anything in the app. If it can’t sort it out, send it to the club admins and a person will help.</p>
+    <textarea id="hub-helpq" class="coachq" rows="2" placeholder="e.g. How do I add a guest player? / The score is wrong" ${H.helpBusy?'disabled':''}></textarea>
+    <div class="calbtns"><button class="btn small primary-s" data-hact="helpask" ${H.helpBusy?'disabled':''}>${H.helpBusy?'Looking that up…':'Ask'}</button><button class="btn small" data-hact="tkopen">Send to the club admins</button></div></div>`;
+  if(H.tk)h+=`<div class="card"><h3>Send to the club admins</h3><label class="fld">What’s going on?<textarea id="hub-tktext" class="coachq" rows="3">${esc(H.tk.text||'')}</textarea></label>
+    ${myMem()?'<p class="fine">They’ll get it as a message from you.</p>':'<label class="fld">How can they reach you? (name and phone or email)<input id="hub-tkcontact"></label>'}
+    <div class="calbtns"><button class="btn small primary-s" data-hact="tksend">Send</button><button class="btn small" data-hact="tkcancel">Cancel</button></div></div>`;
+  th.slice().reverse().forEach(x=>{h+=`<div class="card"><div class="cq">“${esc(x.q)}”</div><p style="white-space:pre-wrap;margin:6px 0 0">${esc(x.a)}</p>${x.escalate?'<div class="calbtns" style="margin-top:8px"><button class="btn small primary-s" data-hact="tkopen">Send to the club admins</button></div>':''}</div>`;});
+  return h;}
+async function helpAsk(){const el=$$h('hub-helpq');const q=(el&&el.value||'').trim();if(!q||H.helpBusy)return;H.helpBusy=true;renderHub();
+  const th=H.help=H.help||[];
+  try{const r=await fetch('/api/help',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},memTok()?{Authorization:'Bearer '+memTok()}:{}),body:JSON.stringify({kind:'ask',question:q,history:th.slice(-3).map(x=>({q:x.q,a:x.a})),ctx:helpCtx(),dv:S.dv})});
+    const j=await r.json().catch(()=>({}));th.push({q,a:r.ok?j.answer:(j.error||'The help desk is unavailable right now.'),escalate:!r.ok||j.escalate});}
+  catch(e){th.push({q,a:'No connection. Try again in a moment.',escalate:false});}
+  H.helpBusy=false;renderHub();}
+async function helpTicket(){const text=(($$h('hub-tktext')||{}).value||'').trim();if(!text){hubSay('Tell us what’s going on');return;}
+  const th=H.help||[];const transcript=th.slice(-3).map(x=>'Q: '+x.q+'\nA: '+x.a).join('\n\n');
+  try{const r=await fetch('/api/help',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},memTok()?{Authorization:'Bearer '+memTok()}:{}),body:JSON.stringify({kind:'ticket',text,contact:(($$h('hub-tkcontact')||{}).value||''),transcript,ctx:helpCtx(),dv:S.dv})});
+    const j=await r.json().catch(()=>({}));if(r.ok){H.tk=null;hubSay('Sent. A club admin will get back to you.');}else hubSay(j.error||'Couldn’t send it');}
+  catch(e){hubSay('No connection. Try again.');}}
 function hubInboxHTML(){const me=myMem();
   let h=`<div class="hubbar"><b>Messages</b><button class="btn small primary-s" data-hact="newdm">New message</button></div>`;
   if(H.picking){h+=`<div class="card"><b>Message someone</b>${H.people?H.people.length?H.people.map(p=>`<button class="hrow" data-hact="dm" data-id="${p.id}"><b>${esc(p.name)}</b><small>${esc(roleName[p.role]||'')}${p.kids.length?' · '+esc(p.kids.join(', ')):''}</small></button>`).join(''):'<p class="muted">No one to message yet.</p>':'<p class="muted">Loading…</p>'}<button class="btn small" data-hact="pickcancel">Cancel</button></div>`;}
@@ -2843,8 +2901,12 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-hact]');if
 async function hubAct(a,d){const me=myMem();const v=id=>(($$h(id)||{}).value||'').trim();
   switch(a){
     case 'open':hubOpen();break;
+    case 'helpask':helpAsk();break;
+    case 'tkopen':{const th=H.help||[];H.tk={text:th.length?th[th.length-1].q:''};renderHub();break;}
+    case 'tkcancel':H.tk=null;renderHub();break;
+    case 'tksend':helpTicket();break;
     case 'close':H.open=false;H.ch=null;renderHub();break;
-    case 'tab':H.tab=d.t;H.ch=null;H.picking=false;renderHub();if(d.t==='fees')hubLoadFees();if(d.t==='msgs')hubRefresh(true);break;
+    case 'tab':H.tab=d.t==='join'?'msgs':d.t;H.ch=null;H.picking=false;renderHub();if(d.t==='fees')hubLoadFees();if(d.t==='msgs')hubRefresh(true);break;
     case 'kid':{const k=H.kids||[];H.kids=k.includes(d.id)?k.filter(x=>x!==d.id):k.concat(d.id);const n=v('hub-name');renderHub();if($$h('hub-name'))$$h('hub-name').value=n;break;}
     case 'joininv':{const name=v('hub-name');if(!name){hubSay('Add your name');break;}if(!(H.kids||[]).length){hubSay('Tap your player');break;}
       const j=await hubApi('POST','',{kind:'join',invite:H.join.code,name,kids:H.kids});if(j.error){hubSay(j.error);break;}
@@ -2889,6 +2951,30 @@ async function hubInit(){
   hubRefresh(false);
   setInterval(()=>{if(document.hidden||!memTok())return;H.poll++;if(H.open&&H.ch)hubRefresh(false);else if(H.open?H.poll%3===0:H.poll%12===0)hubRefresh(H.open);},5000);
 }
+/* ---------- Problem reports: errors and failed saves go to the club admins automatically ---------- */
+const REP={n:0,seen:new Set()};
+function reportProblem(msg,stack){if(!location.protocol.startsWith('http')||REP.n>=8)return;msg=String(msg||'').slice(0,300);if(!msg||REP.seen.has(msg))return;REP.seen.add(msg);REP.n++;
+  try{fetch('/api/report',{method:'POST',headers:{'Content-Type':'application/json'},keepalive:true,body:JSON.stringify({msg,stack:String(stack||'').slice(0,1200),ver:APP_VER,team:S&&S.team||'',page:location.search.slice(0,100),dv:S&&S.dv||''})}).catch(()=>{});}catch(e){}}
+window.addEventListener('error',e=>{if(e.filename&&!e.filename.includes(location.host))return;reportProblem(e.message,e.error&&e.error.stack);});
+window.addEventListener('unhandledrejection',e=>{const r=e.reason;reportProblem('Unhandled: '+(r&&r.message||r),r&&r.stack);});
+/* ---------- Club admin tools (main code): help requests, problems, backups ---------- */
+const ADM={tab:null,data:null};
+async function admCall(body){try{const r=await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({code:S.master||''},body))});
+  if(body.kind==='backup'&&r.ok)return {blob:await r.blob()};const j=await r.json().catch(()=>({}));return r.ok?j:{error:j.error||'Couldn’t reach the server'};}catch(e){return {error:'No connection'};}}
+async function admLoad(tab){ADM.tab=tab;ADM.data=null;renderClub();const j=await admCall({kind:tab==='help'?'tickets':tab==='problems'?'problems':'backups'});ADM.data=j;renderClub();}
+function adminHTML(){let h=`<section class="cs"><h2>Club admin</h2><div class="seg">${[['help','Help requests'],['problems','Problems'],['backups','Backups']].map(([t,l])=>`<button data-cact="adm" data-t="${t}" aria-pressed="${ADM.tab===t}">${l}</button>`).join('')}</div>`;
+  const d=ADM.data;if(!ADM.tab)return h+'<p class="fine">Help requests from coaches and parents, problems the app reported, and daily backups.</p></section>';
+  if(!d)return h+'<p class="muted">Loading…</p></section>';if(d.error)return h+`<p class="muted">${esc(d.error)}</p></section>`;
+  h+='<div class="clist">';
+  if(ADM.tab==='help'){const open=d.tickets.filter(t=>!t.done);if(!d.tickets.length)h+='<p class="muted" style="padding:12px">No help requests.</p>';
+    d.tickets.slice(0,60).forEach(t=>{h+=`<div class="crow ${t.done?'tdone':''}"><div class="cinfo"><b>${esc(t.from||t.contact||'Someone')}</b> <span class="fine">${esc(new Date(t.at).toLocaleString('en-US',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}))}${t.ctx&&t.ctx.team?' · '+esc(t.ctx.team):''}${t.ctx&&t.ctx.role?' · '+esc(t.ctx.role):''}</span><div>${esc(t.text)}</div>${t.contact&&t.from?`<div class="fine">${esc(t.contact)}</div>`:''}${t.transcript?`<details><summary class="fine">What the help desk said</summary><pre class="fine" style="white-space:pre-wrap">${esc(t.transcript)}</pre></details>`:''}</div><button class="btn small" data-cact="tkdone" data-id="${t.id}" data-done="${t.done?0:1}">${t.done?'Reopen':'Done'}</button></div>`;});
+    h+=`</div><p class="fine">${open.length} open. Requests from members also arrive as a direct message in 💬.</p></section>`;return h;}
+  if(ADM.tab==='problems'){if(!d.problems.length)h+='<p class="muted" style="padding:12px">No problems reported in the last 7 days.</p>';
+    d.problems.forEach(p=>{h+=`<div class="crow"><div class="cinfo"><b>${esc(p.msg)}</b><div class="fine">${p.n}× · last ${esc(new Date(p.last).toLocaleString('en-US',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}))} · version ${esc(p.ver)}${p.teams.length?' · '+esc(p.teams.join(', ')):''}</div>${p.stack?`<details><summary class="fine">Details</summary><pre class="fine" style="white-space:pre-wrap">${esc(p.stack)}</pre></details>`:''}</div></div>`;});
+    return h+'</div><p class="fine">Errors and failed saves the app hit on anyone’s phone. Send these to Claude to fix.</p></section>';}
+  if(!d.days.length)h+='<p class="muted" style="padding:12px">No backups yet. The first one runs tonight, or tap Back up now.</p>';
+  d.days.forEach(day=>{h+=`<div class="crow"><div class="cinfo"><b>${esc(new Date(day+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}))}</b></div><button class="btn small" data-cact="bkdl" data-d="${day}">Download</button></div>`;});
+  return h+`</div><div class="calbtns" style="margin-top:8px"><button class="btn small primary-s" data-cact="bknow">Back up now</button></div><p class="fine">Everything the club has saved, copied every night and kept 30 days.</p></section>`;}
 function clubInit(){
   document.querySelector('.app').style.display='none';$('club').hidden=false;document.title='Club scoreboard';
   renderClub();clubFetch();setInterval(()=>{if(document.visibilityState==='visible'&&!CLUB.edit)clubFetch();},5000);setInterval(clubTick,1000);
