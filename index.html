@@ -293,6 +293,9 @@ button.cell.picked{border:2px solid var(--crimson)}
 .pitch.f11 .chip .mn{font-size:clamp(9px,2.5cqw,12px);gap:4px}
 .pitch.f11 .chip .inc{font-size:clamp(10px,3cqw,14px)}
 .pitch.f7 .chip{width:clamp(92px,31%,170px)}
+.pitch.fw4 .chip{width:clamp(66px,22%,128px);padding:4px 4px 5px}.pitch.fw5 .chip{width:clamp(56px,18.5%,110px);padding:4px 3px 5px}
+.pitch.fw5 .chip .nm{font-size:clamp(11px,3.4cqw,17px)}.mpitch.fw4 .mchip,.mpitch.fw5 .mchip{width:19%}
+details.posren{margin-top:10px}details.posren summary{cursor:pointer;font:700 17px "Barlow Condensed",sans-serif;padding:6px 0}.posrow{margin-top:4px}
 .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
 .tab{flex:1 0 auto;padding:13px 10px 10px;font-size:18px}
@@ -592,12 +595,40 @@ const FORMS={
     '4-3-3':[['GK','Keeper','GK',50,91],['LB','Left back','DEF',13,71],['LCB','Left center back','DEF',37,75],['RCB','Right center back','DEF',63,75],['RB','Right back','DEF',87,71],['LCM','Left center mid','MID',27,49],['CM','Center mid','MID',50,53],['RCM','Right center mid','MID',73,49],['LW','Left wing','FWD',15,23],['ST','Striker','FWD',50,19],['RW','Right wing','FWD',85,23]]
   }
 };
-const FORMATS=Object.keys(FORMS);
+/* Any formation from 7v7 to 11v11: the built-in ones above keep their position ids (saved plans use them);
+   any other shape such as 4-3-2-1 is laid out line by line, back to front. */
+const FORMATS=['7v7','8v8','9v9','10v10','11v11'];
+const PRESETS={'7v7':['2-3-1','3-2-1','3-1-2','2-1-2-1'],'8v8':['3-3-1','2-3-2','3-2-2','2-4-1'],'9v9':['3-3-2','3-2-3','2-4-2','4-3-1'],
+  '10v10':['4-3-2','3-4-2','3-3-3','4-4-1'],'11v11':['4-4-2','4-3-3','4-2-3-1','4-3-2-1','3-5-2','4-5-1','5-3-2']};
+const nOf=f=>{const m=/^(\d+)v\1$/.exec(String(f||''));return m?+m[1]:0;};
+const shapeOk=(f,n)=>{const N=nOf(f);if(N<7||N>11||!/^[1-6](-[1-6]){1,3}$/.test(String(n||'')))return false;return n.split('-').reduce((a,b)=>a+ +b,0)===N-1;};
+const validForm=(f,n)=>!!((FORMS[f]&&FORMS[f][n])||shapeOk(f,n));
+const POSNAMES={LB:'Left back',LCB:'Left center back',CB:'Center back',RCB:'Right center back',RB:'Right back',LWB:'Left wing back',RWB:'Right wing back',
+  LM:'Left mid',LCM:'Left center mid',CM:'Center mid',RCM:'Right center mid',RM:'Right mid',DM:'Defensive mid',LDM:'Left defensive mid',RDM:'Right defensive mid',
+  CAM:'Attacking mid',LAM:'Left attacking mid',RAM:'Right attacking mid',LW:'Left wing',RW:'Right wing',ST:'Striker',LS:'Left striker',RS:'Right striker'};
+const LINEIDS={DEF:{1:['CB'],2:['LB','RB'],3:['LB','CB','RB'],4:['LB','LCB','RCB','RB'],5:['LWB','LCB','CB','RCB','RWB']},
+  MID:{1:['CM'],2:['LCM','RCM'],3:['LM','CM','RM'],4:['LM','LCM','RCM','RM'],5:['LM','LCM','CM','RCM','RM']},
+  CMS:{3:['LCM','CM','RCM'],4:['LM','LCM','RCM','RM'],5:['LM','LCM','CM','RCM','RM']},DM:{1:['DM'],2:['LDM','RDM'],3:['LDM','DM','RDM']},AM:{1:['CAM'],2:['LAM','RAM'],3:['LAM','CAM','RAM'],4:['LW','LAM','RAM','RW']},
+  FWD:{1:['ST'],2:['LS','RS'],3:['LW','ST','RW'],4:['LW','LS','RS','RW']}};
+const XS={1:[50],2:[30,70],3:[19,50,81],4:[13,37,63,87],5:[10,30,50,70,90],6:[8,25,42,58,75,92]};
+function buildForm(n){
+  const L=n.split('-').map(Number),k=L.length,out=[GK_.slice()],used=new Set(['GK']);
+  L.forEach((cnt,i)=>{const fam=i===0?'DEF':i===k-1?'FWD':k===4?(i===1?(cnt<=2?'DM':'CMS'):'AM'):'MID';
+    const grp=fam==='DEF'?'DEF':fam==='FWD'?'FWD':'MID';const y=Math.round(73-i*(52/(k-1)));
+    const ids=(LINEIDS[fam]&&LINEIDS[fam][cnt])||Array.from({length:cnt},(_,j)=>grp[0]+(j+1));
+    ids.forEach((id,j)=>{let u=id,m=2;while(used.has(u))u=id+(m++);used.add(u);out.push([u,POSNAMES[id]||(GNAME[grp]+' '+(j+1)),grp,XS[cnt][j],y]);});});
+  return out;
+}
 function formOf(key){
   const [f,n]=String(key||'').split('/');
-  const fm=(FORMS[f]&&FORMS[f][n])?FORMS[f][n]:FORMS['9v9']['3-3-2'];
-  return fm.map(a=>({id:a[0],name:a[1],g:a[2],x:a[3],y:a[4]}));
+  const fm=(FORMS[f]&&FORMS[f][n])?FORMS[f][n]:shapeOk(f,n)?buildForm(n):FORMS['9v9']['3-3-2'];
+  // A team can rename positions (short label and full name); the id underneath stays the same.
+  let pn={};try{const c=CFG();pn=(c&&c.posNames)||{};}catch(e){}
+  return fm.map(a=>{const r=pn[a[0]]||{};return {id:a[0],s:r.s||a[0],name:r.n||a[1],g:a[2],x:a[3],y:a[4]};});
 }
+function pitchCls(key){const f=formOf(key);const N=nOf(String(key).split('/')[0])||9;const row={};
+  f.forEach(p=>{if(p.g!=='GK')row[p.y]=(row[p.y]||0)+1;});const w=Math.max(1,...Object.values(row));
+  return (N<=7?'f7':N<=9?'f9':'f11')+(w>=5?' fw5':w===4&&N<=9?' fw4':'');}
 const GROUPS=[['GK','GK'],['DEF','D'],['MID','M'],['FWD','F']];
 const GNAME={GK:'Keeper',DEF:'Defense',MID:'Midfield',FWD:'Forward'};
 
@@ -679,8 +710,8 @@ let S=null;
 function fixCfg(c){
   c.players=Array.isArray(c.players)?c.players:[];c.games=Array.isArray(c.games)?c.games:[];
   c.players.forEach(p=>{if(!Array.isArray(p.gr))p.gr=[];});
-  if(!FORMS[c.format])c.format='9v9';
-  if(!FORMS[c.format][c.formation])c.formation=Object.keys(FORMS[c.format])[0];
+  if(!nOf(c.format)||nOf(c.format)<7||nOf(c.format)>11)c.format='9v9';
+  if(!validForm(c.format,c.formation))c.formation=PRESETS[c.format][0];
   if(!c.games.length)c.games.push({id:'g1',title:'Game 1',opp:'',dt:'',field:'',place:'',half:30,sub:10,out:[]});
   return c;
 }
@@ -927,6 +958,7 @@ const G=()=>stateOf(GC());
 const PL=()=>G().plan;
 let POS=[],PI={},PLAYERS=[],P={};
 function useForm(key){const f=formOf(key);POS=f.map(p=>p.id);PI=Object.fromEntries(f.map(p=>[p.id,p]));}
+const PS_=p=>(PI[p]&&PI[p].s)||p||'';
 function useTeam(){const c=CFG();PLAYERS=c?c.players:[];P=Object.fromEntries(PLAYERS.map(p=>[p.id,p]));if(c)useForm(G().form);}
 const posIds=g=>formOf(g.form).map(p=>p.id);
 const nm=id=>id?(P[id]?P[id].name:'Removed player'):'Empty';
@@ -1044,7 +1076,7 @@ function describe(b,a,PS){
     if(o&&outs.includes(o)&&!used.has(o)){used.add(o);lines.push({k:'sub',p,id,o,t:nm(id)+' in for '+nm(o)});}
     else lines.push({k:'in',p,id,t:nm(id)+' in'});});
   outs.filter(o=>!used.has(o)).forEach(o=>lines.push({k:'out',p:posOf(b,o),id:o,t:nm(o)+' off'}));
-  [...as].filter(x=>bs.has(x)&&posOf(a,x)!==posOf(b,x)).forEach(id=>lines.push({k:'move',p:posOf(a,id),id,t:nm(id)+' moves '+posOf(b,id)+' to '+posOf(a,id)}));
+  [...as].filter(x=>bs.has(x)&&posOf(a,x)!==posOf(b,x)).forEach(id=>lines.push({k:'move',p:posOf(a,id),id,t:nm(id)+' moves '+PS_(posOf(b,id))+' to '+PS_(posOf(a,id))}));
   return lines;
 }
 function winK(g,c){
@@ -1203,7 +1235,7 @@ function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').rep
 const PUB_VER='2026-10-23a';
 /* APP_VER changes with every deploy that coach devices should pick up. When the published page's APP_VER
    differs from the running one, a coach device reloads itself if no clock is running, or shows a Refresh button. */
-const APP_VER='2026-10-23b';
+const APP_VER='2026-10-23c';
 const VER={tag:null,ready:false};
 async function checkVersion(){
   if(!SY.on||!canEdit()||document.visibilityState!=='visible')return;
@@ -1252,7 +1284,7 @@ async function createTeam(){
   if(!name){say('Give the new team a name');renderHint();return;}
   const fmtKey=UI.ntFmt||'9v9';
   const taken=new Set(teamsList().map(t=>t.id));let id=slug(name),k=2;while(taken.has(id))id=slug(name)+'-'+(k++);
-  const cfg=fixCfg({id,name,short:name,sub:'',logo:null,song:false,format:fmtKey,formation:Object.keys(FORMS[fmtKey])[0],players:[],
+  const cfg=fixCfg({id,name,short:name,sub:'',logo:null,song:false,format:fmtKey,formation:PRESETS[fmtKey][0],players:[],
     games:[{id:'g1',title:'Game 1',opp:'',dt:'',field:'',place:'',half:fmtKey==='7v7'?25:fmtKey==='9v9'?30:35,sub:10,out:[]}]});
   const code=myCode()||S.master||'';
   S.T[id]={cfg,games:{}};if(code)S.auth[id]=code;UI.newTeam=false;UI.ntName='';
@@ -1561,7 +1593,11 @@ function act(a,ds){
       if(armed('reset')){const ng=freshGame(GC(),g);ng.del=g.del.concat(g.goals,g.stats,g.saves).map(x=>x.u||x).filter((x,i,a)=>typeof x==='string'&&a.indexOf(x)===i);TS().games[GC().id]=ng;UI.pick=null;UI.arm=null;UI.sel=null;UI.goal=null;UI.pk=null;useTeam();say(GC().title+' reset');save();}
       else arm('reset');break;
     /* setup */
-    case 'fmt':{const c=CFG();if(c.format!==ds.f){c.format=ds.f;c.formation=Object.keys(FORMS[ds.f])[0];applyForm();save();}break;}
+    case 'fmt':{const c=CFG();if(c.format!==ds.f){c.format=ds.f;c.formation=PRESETS[ds.f][0];applyForm();save();}break;}
+    case 'formset':{const c=CFG();const v=(($('formin')||{}).value||'').replace(/[^0-9]+/g,'-').replace(/^-|-$/g,'');
+      if(!shapeOk(c.format,v)&&!validForm(c.format,v)){say('Use numbers like 4-3-2-1 that add up to '+(nOf(c.format)-1));break;}
+      if(c.formation!==v){c.formation=v;applyForm();save();}break;}
+    case 'posreset':{const c=CFG();c.posNames={};useTeam();say('Standard position names');save();break;}
     case 'formation':{const c=CFG();if(c.formation!==ds.n){c.formation=ds.n;applyForm();save();}break;}
     case 'grp':{const p=P[ds.id];if(p){const i=p.gr.indexOf(ds.g);if(i>=0)p.gr.splice(i,1);else p.gr.push(ds.g);save();}break;}
     case 'guest':{const p=P[ds.id];if(p){p.guest=!p.guest;save();}break;}
@@ -1604,6 +1640,9 @@ document.addEventListener('change',e=>{
     if(f==='half'||f==='sub'){const v=parseInt(el.value,10);if(!v)return;const lim=f==='half'?[5,60]:[2,30];const nv=Math.min(lim[1],Math.max(lim[0],v));
       if(nv!==gc[f]){gc[f]=nv;gc.plan=null;const st=TS().games[gc.id];if(st){st[f]=nv;if(!st.started){st.plan=autoPlan(st);st.start=Object.assign({},st.plan[0]||{});}}}}
     else gc[f]=el.value.trim();}
+  else if(k==='posn'){const id=el.dataset.id,f=el.dataset.f;c.posNames=c.posNames&&typeof c.posNames==='object'?c.posNames:{};
+    const r=Object.assign({},c.posNames[id]);const v=el.value.trim().slice(0,f==='s'?4:30);if(v)r[f]=v;else delete r[f];
+    if(r.s||r.n)c.posNames[id]=r;else delete c.posNames[id];useTeam();}
   else if(k==='logo'){readLogo(el.files&&el.files[0]);return;}
   else if(k==='opplogo'){const gc=c.games.find(x=>x.id===el.dataset.gid);const f=el.files&&el.files[0];if(!gc||!f)return;const r=new FileReader();
     r.onload=()=>{const img=new Image();img.onload=()=>{const s=96,sc=Math.min(1,s/Math.max(img.width,img.height));const cv=document.createElement('canvas');cv.width=Math.round(img.width*sc);cv.height=Math.round(img.height*sc);
@@ -1733,14 +1772,14 @@ function renderBanner(){
     const d=replay(g);const q=liveQueue(g,d);const lines=q.length?describe(d.L,queueTarget(g,d)):[];const isHalf=wk*g.sub===g.half;
     if(soon&&!lines.length){el.innerHTML='';return;}
     el.innerHTML=`<div class="banner" role="status"><div><h2>${soon?'Subs in under a minute':isHalf?'Halftime':'Sub time'}</h2><p>${lines.length?lines.length+' sub'+(lines.length>1?'s':'')+' lined up':'Tap a bench player to choose where she goes in'}</p></div>
-      <div class="chg">${lines.map(l=>`<span><i>${l.p||''}</i>${esc(l.t)}</span>`).join('')}</div>
+      <div class="chg">${lines.map(l=>`<span><i>${esc(PS_(l.p))}</i>${esc(l.t)}</span>`).join('')}</div>
       <div class="acts">${lines.length?'<button class="btn" data-act="applyq">Make these subs</button>':''}${soon?'':`<button class="btn ghost" data-act="dismiss">${lines.length?'Not now':'OK'}</button>`}</div></div>`;return;}
   if(wk==null||!PL()[wk]){el.innerHTML='';return;}
   const k=wk;const d=replay(g);const lines=describe(d.L,PL()[k]);
   if(soon&&!lines.length){el.innerHTML='';return;}
   const isHalf=k*g.sub===g.half;
   const title=soon?'Subs in under a minute: plan for '+blockRange(g,k):isHalf?'Halftime: planned subs for the 2nd half':'Sub time: plan for '+blockRange(g,k);
-  const chips=lines.length?lines.map(l=>`<span class="${av(g,l.id)?'':'warn'}"><i>${l.p||''}</i>${esc(l.t)}${av(g,l.id)?'':' (not here)'}</span>`).join('')
+  const chips=lines.length?lines.map(l=>`<span class="${av(g,l.id)?'':'warn'}"><i>${esc(PS_(l.p))}</i>${esc(l.t)}${av(g,l.id)?'':' (not here)'}</span>`).join('')
     :'<span>The field already matches the plan.</span>';
   el.innerHTML=`<div class="banner" role="status"><div><h2>${title}</h2><p>${lines.length?lines.length+' change'+(lines.length>1?'s':''):'No changes needed'}</p></div>
     <div class="chg">${chips}</div>
@@ -1756,17 +1795,17 @@ const LINES=`<svg viewBox="0 0 68 100" preserveAspectRatio="none" aria-hidden="t
 const planEditing=()=>{if(S.tab!=='plan'||!canEdit()||UI.planK==null)return false;const g=G();if(!PL()[UI.planK])return false;return !g.started||UI.planK>blockAt(g,clock(g));};
 function renderPlanField(){
   const g=G();const k=UI.planK;const b=PL()[k];const pk=UI.pick&&UI.pick.k===k?UI.pick:null;
-  const pitch=$('pitch');pitch.className='pitch f'+String(g.form).split('v')[0]+' planedit';
+  const pitch=$('pitch');pitch.className='pitch '+pitchCls(g.form)+' planedit';
   let h=LINES+`<div class="pedit"><span>Editing plan ${blockRange(g,k)}</span><button data-act="planedone">Done</button></div>`;
   POS.forEach(p=>{const id=b[p];const pi=PI[p];const cls=['chip'];if(p==='GK')cls.push('gk');if(nm(id).length>6)cls.push('long');if(id&&!av(g,id))cls.push('warn');
     if(pk&&pk.p===p)cls.push('sel');else if(pk)cls.push('target');
-    h+=`<button class="${cls.join(' ')}" style="left:${pi.x}%;top:${pi.y}%" data-act="cell" data-k="${k}" data-p="${p}" aria-label="${esc(pi.name)}: ${esc(nm(id))}"><div class="ps">${p}</div><div class="nm">${esc(nm(id))}</div></button>`;});
+    h+=`<button class="${cls.join(' ')}" style="left:${pi.x}%;top:${pi.y}%" data-act="cell" data-k="${k}" data-p="${p}" aria-label="${esc(pi.name)}: ${esc(nm(id))}"><div class="ps">${esc(pi.s)}</div><div class="nm">${esc(nm(id))}</div></button>`;});
   pitch.innerHTML=h;
 }
 function renderField(){
   if(planEditing()){renderPlanField();return;}
   const g=G();const d=replay(g);const sel=UI.sel;const par=isParent();const up=par?null:upcoming(g,d);
-  const pitch=$('pitch');pitch.className='pitch f'+String(g.form).split('v')[0]+(UI.fieldMode==='stat'&&canEdit()?' statmode':'');
+  const pitch=$('pitch');pitch.className='pitch '+pitchCls(g.form)+(UI.fieldMode==='stat'&&canEdit()?' statmode':'');
   let h=LINES;
   POS.forEach(p=>{const id=d.L[p];const pi=PI[p];
     const cls=['chip'];if(p==='GK')cls.push('gk');if(nm(id).length>6)cls.push('long');
@@ -1778,7 +1817,7 @@ function renderField(){
     if(id&&!av(g,id))cls.push('warn');
     const s=id&&d.st[id]?d.st[id]:{played:0};
     h+=`<button class="${cls.join(' ')}" style="left:${pi.x}%;top:${pi.y}%" data-act="pos" data-p="${p}" aria-label="${esc(pi.name)}: ${esc(nm(id))}">
-      <div class="ps">${p}</div><div class="nm">${esc(nm(id))}</div>
+      <div class="ps">${esc(pi.s)}</div><div class="nm">${esc(nm(id))}</div>
       ${par?'':`<div class="mn"><span>In <b data-lv="played" data-id="${id}">${fmt(s.played)}</b></span><span>Sat <b data-lv="sattot" data-id="${id}">${fmt(d.now-s.played)}</b></span></div>`}${inc}</button>`;});
   if(hideLineup())h=LINES+`<div class="lineuphide"><b>Lineup at kickoff</b><span>${esc(whenText(GC()))}</span></div>`;
   pitch.innerHTML=h;
@@ -1824,7 +1863,7 @@ function renderBench(d){
   else if(sel&&sel.type==='player'){const queue=pOff(g)&&g.started&&!sel.now;const q=(g.queue||[]).find(x=>x.id===sel.id);
     h+=`<div class="ctx live pickpos"><div>Where is <b>${esc(nm(sel.id))}</b> going ${queue?'at the next sub':'in now'}? Tap a spot here or on the field.</div>
       <div class="posgrid">${POS.map(p=>{const cur=d.L[p];const lined=(g.queue||[]).find(x=>x.pos===p&&x.id!==sel.id);
-        return `<button class="${q&&q.pos===p?'cur':''}" data-act="${queue?'benchq':'benchnow'}" data-p="${p}"><b>${p}</b><small>${cur?esc(nm(cur)):'Empty'}${lined?' · '+esc(nm(lined.id))+' lined up':''}</small></button>`;}).join('')}</div>
+        return `<button class="${q&&q.pos===p?'cur':''}" data-act="${queue?'benchq':'benchnow'}" data-p="${p}"><b>${esc(PS_(p))}</b><small>${cur?esc(nm(cur)):'Empty'}${lined?' · '+esc(nm(lined.id))+' lined up':''}</small></button>`;}).join('')}</div>
       <div class="pickacts">${pOff(g)&&g.started?`<button class="btn small" data-act="benchnowmode">${sel.now?'Line up for next sub instead':'Sub in right now instead'}</button>`:''}${q?`<button class="btn small" data-act="unq" data-id="${sel.id}">Not going in</button>`:''}<button class="btn small" data-act="cancel">Cancel</button></div></div>`;}
   else if(up&&pOff(g))h+=`<div class="ctx live">${g.pending!=null?'Sub time.':'Lined up for the next sub.'} Green players are going in.${g.pending!=null?' <button class="btn small" data-act="applyq">Make these subs</button>':''}</div>`;
   else if(up)h+=`<div class="ctx live">${g.pending!=null?'Subs are due now.':'Subs coming in under a minute.'} Green players are going in. <button class="btn small" data-act="editplan">Change plan</button></div>`;
@@ -1847,11 +1886,11 @@ function renderBench(d){
   return h;
 }
 function miniField(g,b,i,editable,pk,base){
-  let h=`<div class="mpitch f${String(g.form).split('v')[0]}${pk?' choosing':''}"><div class="mlines">${LINES}</div>`;
+  let h=`<div class="mpitch ${pitchCls(g.form)}${pk?' choosing':''}"><div class="mlines">${LINES}</div>`;
   formOf(g.form).forEach(pi=>{const p=pi.id,id=b[p];const cls=['mchip'];if(p==='GK')cls.push('gk');
     if(id&&!av(g,id))cls.push('warn');if(base&&id&&!POS.some(x=>base[x]===id))cls.push('new');if(pk&&pk.p===p)cls.push('picked');
     const st=`left:${pi.x}%;top:${((pi.y-12)/86*100).toFixed(1)}%`;
-    const inner=`<span class="mps">${p}</span><span class="mnm">${esc(id?nm(id):'Empty')}${id&&!av(g,id)?' (out)':''}</span>`;
+    const inner=`<span class="mps">${esc(pi.s)}</span><span class="mnm">${esc(id?nm(id):'Empty')}${id&&!av(g,id)?' (out)':''}</span>`;
     h+=editable?`<button class="${cls.join(' ')}" style="${st}" data-act="cell" data-k="${i}" data-p="${p}" aria-label="${esc(pi.name)}: ${esc(nm(id))}">${inner}</button>`:`<div class="${cls.join(' ')}" style="${st}">${inner}</div>`;});
   return h+'</div>';
 }
@@ -1873,10 +1912,10 @@ function renderPlan(d){
     const pill=state==='now'?'<span class="pill now">On now</span>':state==='done'?'<span class="pill">Done</span>':(g.pending===i?'<span class="pill nx">Due now</span>':(state==='next'&&g.started)?'<span class="pill nx">Next</span>':'');
     const pk=UI.pick&&UI.pick.k===i?UI.pick:null;
     const cells=POS.map(p=>{const c=`cell ${!b[p]||av(g,b[p])?'':'warn'}${editable?' edit':''}${pk&&pk.p===p?' picked':''}`;
-      return editable?`<button class="${c}" data-act="cell" data-k="${i}" data-p="${p}"><span>${p}</span>${esc(nm(b[p]))}</button>`:`<div class="${c}"><span>${p}</span>${esc(nm(b[p]))}</div>`;}).join('');
+      return editable?`<button class="${c}" data-act="cell" data-k="${i}" data-p="${p}"><span>${esc(PS_(p))}</span>${esc(nm(b[p]))}</button>`:`<div class="${c}"><span>${p}</span>${esc(nm(b[p]))}</div>`;}).join('');
     let picker='';
     if(pk){const old=b[pk.p];
-      picker=`<div class="pickbar"><div><b>${esc(old?nm(old):'Empty spot')}</b> at ${pk.p} is selected. Tap another player on this field to swap, or a bench name to bring her in.</div>
+      picker=`<div class="pickbar"><div><b>${esc(old?nm(old):'Empty spot')}</b> at ${esc(PS_(pk.p))} is selected. Tap another player on this field to swap, or a bench name to bring her in.</div>
         ${old&&i<PL().length-1?`<div class="inj"><button class="tog ${pk.all?'on':''}" data-act="pickall" aria-pressed="${pk.all}">${pk.all?'Yes':'No'}</button><span>When I bring in a bench player, also replace ${esc(nm(old))} in later blocks</span></div>`:''}
         <button class="btn small" data-act="pickcancel">Cancel</button></div>`;}
     let diff='';
@@ -1885,7 +1924,7 @@ function renderPlan(d){
       // The first upcoming block changes from who is on the field now; later blocks change from the block before them.
       const first=g.started?i===cb+1:i===0;const base=first?d.L:PL()[i-1];const lines=describe(base,b);
       const lbl=first?(g.started?'Subs from who’s on now':'Different from the starting lineup'):'Subs at '+blockRange(g,i).split('–')[0]+' min';
-      diff=lines.length?`<div class="dlbl">${lbl}</div><ul class="diff">${lines.map(l=>`<li class="${av(g,l.id)?'':'warn'}">${l.p?l.p+': ':''}${esc(l.t)}${av(g,l.id)?'':' (out)'}</li>`).join('')}</ul>`
+      diff=lines.length?`<div class="dlbl">${lbl}</div><ul class="diff">${lines.map(l=>`<li class="${av(g,l.id)?'':'warn'}">${l.p?esc(PS_(l.p))+': ':''}${esc(l.t)}${av(g,l.id)?'':' (out)'}</li>`).join('')}</ul>`
         :`<ul class="diff"><li class="muted">${first?(g.started?'Matches who’s on now':'This is the starting lineup'):'No subs from the block before'}</li></ul>`;}
     let btn='';
     if(!g.started)btn=`<button class="btn small" data-act="startwith" data-k="${i}">Start with this lineup</button>`;
@@ -1951,7 +1990,7 @@ function renderLog(d){
         h+=`<li class="${x.side==='us'?'goal':''}"><div class="lt">${tfmt(g,x.t)}</div><div class="ll"><div>${txt}${ed?`<button class="del ${armed('goal'+it.k)?'armed':''}" data-act="goaldel" data-i="${it.k}">${armed('goal'+it.k)?'Tap to remove':'Remove'}</button>`:''}</div></div></li>`;}
       else if(it.save){const x=it.save;
         h+=`<li><div class="lt">${tfmt(g,x.t)}</div><div class="ll"><div>Save: ${esc(nm(x.gk))}${ed?`<button class="del ${armed('save'+it.k)?'armed':''}" data-act="savedel" data-i="${it.k}">${armed('save'+it.k)?'Tap to remove':'Remove'}</button>`:''}</div></div></li>`;}
-      else{const b=it.b;h+=`<li><div class="lt">${tfmt(g,b.t)}</div><div class="ll">${b.lines.length?b.lines.map(l=>`<div><i>${l.p||''}</i>${esc(l.t)}</div>`).join(''):'<div class="muted">No net change</div>'}</div></li>`;}
+      else{const b=it.b;h+=`<li><div class="lt">${tfmt(g,b.t)}</div><div class="ll">${b.lines.length?b.lines.map(l=>`<div><i>${esc(PS_(l.p))}</i>${esc(l.t)}</div>`).join(''):'<div class="muted">No net change</div>'}</div></li>`;}
     });
     h+='</ul>';
   }
@@ -1988,8 +2027,12 @@ function renderSetup(){
     <div class="set"><span>Rotation plan<small class="fine" style="display:block">Plan who plays when, block by block. Adds a Plan tab and planned subs. When off, sub alerts still sound and you tap bench players to line up who goes in.</small></span><button class="tog ${c.usePlan?'on':''}" data-act="cfgplan" aria-pressed="${!!c.usePlan}">${c.usePlan?'On':'Off'}</button></div>
     <div class="set"><span>Goal song (the Cottontown chant)</span><button class="tog ${c.song?'on':''}" data-act="cfgsong" aria-pressed="${!!c.song}">${c.song?'On':'Off'}</button></div></div>`;
   h+=`<div class="card"><h3>Format</h3><div class="seg">${FORMATS.map(f=>`<button data-act="fmt" data-f="${f}" aria-pressed="${c.format===f}">${f}</button>`).join('')}</div>
-    <div class="seg" style="margin-top:8px">${Object.keys(FORMS[c.format]).map(n=>`<button data-act="formation" data-n="${n}" aria-pressed="${c.formation===n}">${n}</button>`).join('')}</div>
-    <p class="fine">Changing the format or formation rebuilds the rotation for games that haven’t started. Games already underway keep their lineup.</p></div>`;
+    <div class="seg" style="margin-top:8px">${[...new Set(PRESETS[c.format].concat(c.formation))].map(n=>`<button data-act="formation" data-n="${n}" aria-pressed="${c.formation===n}">${n}</button>`).join('')}</div>
+    <label class="fld">Or type any formation (field players, back to front)<span class="codebox"><input id="formin" placeholder="e.g. ${nOf(c.format)>=11?'4-3-2-1':nOf(c.format)>=9?'3-4-1':'2-3-1'}" inputmode="numeric"><button class="btn small" data-act="formset">Use it</button></span></label>
+    <p class="fine">Numbers must add up to ${nOf(c.format)-1} (plus the keeper). Changing the format or formation rebuilds the rotation for games that haven’t started. Games already underway keep their lineup.</p>
+    <details class="posren"><summary>Rename positions</summary><p class="fine">Short label shows on the field (up to 4 letters). Plans and stats stay the same.</p>
+    ${formOf(teamKey(c)).map(pi=>`<div class="grid2 posrow"><label class="fld">${esc(pi.id)} short<input data-cfg="posn" data-id="${pi.id}" data-f="s" maxlength="4" value="${esc(pi.s)}"></label><label class="fld">Full name<input data-cfg="posn" data-id="${pi.id}" data-f="n" maxlength="30" value="${esc(pi.name)}"></label></div>`).join('')}
+    ${c.posNames&&Object.keys(c.posNames).length?'<button class="btn small" data-act="posreset">Use the standard names</button>':''}</details></div>`;
   h+=`<div class="card"><h3>Roster (${c.players.length})</h3><p class="fine" style="margin-top:-4px">Tap GK, D, M and F for the positions each player can play. The automatic rotation uses these, and keepers marked only GK stay in goal.</p>`;
   c.players.forEach(p=>{
     h+=`<div class="prow2"><div><div class="pnrow"><input class="pnum" data-cfg="pl" data-f="num" data-id="${p.id}" value="${esc(p.num||'')}" inputmode="numeric" placeholder="#" aria-label="Jersey number"><input class="pname" id="pl-${p.id}" data-cfg="pl" data-f="name" data-id="${p.id}" value="${esc(p.name)}" aria-label="Player name"></div>
