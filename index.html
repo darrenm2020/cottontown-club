@@ -335,6 +335,20 @@ details.posren{margin-top:10px}details.posren summary{cursor:pointer;font:700 17
 .gameinfo .cd{font-weight:700;color:var(--crimson)}
 .maplink{border:1px solid var(--line);border-radius:20px;padding:3px 12px;color:var(--ink);text-decoration:none;font-weight:600;font-size:13.5px;background:var(--surface-2)}
 .songrow{gap:8px;flex-wrap:wrap}
+.board{position:relative}.bfullscreen{position:fixed;inset:0;z-index:50;margin:0;border-radius:0;overflow:auto;background:var(--surface)}
+.btop{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}.btitle{flex:1;min-width:140px;min-height:40px;border:1.5px solid var(--line);border-radius:10px;padding:0 10px;font:700 18px "Barlow Condensed",sans-serif;background:var(--surface);color:var(--ink)}
+b.btitle{border:0;padding:0}.bfield button{min-height:36px;padding:0 10px;font-size:15px}
+.btools{display:flex;gap:4px;overflow-x:auto;padding-bottom:4px}.btools button{flex:0 0 auto;border:1.5px solid var(--line);background:var(--surface-2);border-radius:9px;min-height:36px;padding:0 9px;font:700 15px "Barlow Condensed",sans-serif;color:var(--ink)}
+.btools button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}.btools.add button{font-weight:600}
+.bwrap{position:relative;margin:6px 0;touch-action:none}.bsvg{width:100%;max-height:72vh;display:block;border-radius:10px;touch-action:none;user-select:none;-webkit-user-select:none}
+.bfullscreen .bsvg{max-height:calc(100vh - 230px)}.bfs{position:absolute;top:6px;right:6px;border:0;border-radius:8px;background:rgba(0,0,0,.45);color:#fff;font-size:18px;width:34px;height:34px}
+.bobj{cursor:grab}.bobj.sel circle:first-child{stroke:#ffd34d;stroke-width:.7}.barrow,.bdraw{cursor:pointer}
+.bsteps{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin:4px 0}.bsteps>button:not(.btn){min-width:36px;min-height:36px;border:1.5px solid var(--line);border-radius:9px;background:var(--surface-2);font:700 16px "Barlow Condensed",sans-serif;color:var(--ink)}
+.bsteps>button[aria-pressed="true"]{background:var(--crimson);border-color:var(--crimson);color:#fff}.bsteps .btn{margin-left:auto}
+.bcap{width:100%;box-sizing:border-box;min-height:40px;border:1.5px solid var(--line);border-radius:10px;padding:0 10px;font:500 15px "Barlow",sans-serif;background:var(--surface);color:var(--ink)}.bcapv{font-weight:600;margin:4px 0}
+.bsel{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:14px;margin:4px 0}.bsel input{width:80px;min-height:36px;border:1.5px solid var(--line);border-radius:8px;padding:0 8px}
+.bai{margin-top:10px;display:flex;flex-direction:column;gap:6px;background:var(--surface-2);border-radius:12px;padding:10px}.bai textarea{border:1.5px solid var(--line);border-radius:10px;padding:8px;font:500 15px "Barlow",sans-serif;background:var(--surface);color:var(--ink)}
+.bai .btn{align-self:flex-start}
 .cmte{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin:8px 0}
 .cm{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;border:1.5px solid var(--line);background:var(--surface-2);border-radius:12px;padding:8px 10px;color:var(--ink);cursor:pointer}
 .cm.on{border-color:var(--crimson);background:color-mix(in srgb,var(--crimson) 8%,var(--surface))}
@@ -1263,7 +1277,7 @@ function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').rep
 const PUB_VER='2026-10-23a';
 /* APP_VER changes with every deploy that coach devices should pick up. When the published page's APP_VER
    differs from the running one, a coach device reloads itself if no clock is running, or shows a Refresh button. */
-const APP_VER='2026-10-24b';
+const APP_VER='2026-10-24c';
 const VER={tag:null,ready:false};
 async function checkVersion(){
   if(!SY.on||!canEdit()||document.visibilityState!=='visible')return;
@@ -1515,6 +1529,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-copy]');if
   const done=()=>{const t=b.textContent;b.textContent='Copied ✓';setTimeout(()=>{b.textContent=t;},1800);};
   try{navigator.clipboard.writeText(u).then(done,()=>prompt('Copy this link',u));}catch(err){prompt('Copy this link',u);}});
 function act(a,ds){
+  if(/^b(tool|field|add|lineup|undo|clear|step|stepadd|stepdel|play|full|label|del|new|save|share|open|pdel|ai)$/.test(a)&&(canEdit()||['bopen','bplay','bstep','bfull'].includes(a))){boardAct(a,ds);return;}
   if(!CFG()&&a!=='teamgo')return;
   const g=CFG()?G():null;
   if(!canEdit()&&!VIEW_OK.has(a)){say('You’re following along. Coaches can unlock on the Team tab.');renderHint();return;}
@@ -1934,9 +1949,9 @@ function renderHint(){
 function renderTabs(){
   if(CFG()&&!isParent()&&S.tab==='plan'&&!usePlan())S.tab='bench';
   const g=G();const d=replay(g);const benchN=PLAYERS.filter(p=>av(g,p.id)&&!d.on.has(p.id)).length;
-  if(isParent()&&!['bench','stats','players','log','sched'].includes(S.tab))S.tab='bench';
-  const tabs=isParent()?[['bench','Bench',g.started?benchN:''],['stats','Stats',''],['players','Team',''],['log','Goals',g.goals.length||''],['sched','Schedule','']]
-    :[['bench','Bench',benchN],...(usePlan()?[['plan','Plan','']]:[]),['players','Players',''],['log','Log',d.batches.length||''],['stats','Stats',''],['minutes','Minutes',''],['sched','Schedule',''],['coach','Coach',''],['setup','Setup','']];
+  if(isParent()&&!['bench','stats','players','log','sched','board'].includes(S.tab))S.tab='bench';
+  const tabs=isParent()?[['bench','Bench',g.started?benchN:''],['stats','Stats',''],['players','Team',''],['log','Goals',g.goals.length||''],['sched','Schedule',''],...((CFG().plays||[]).some(x=>x.shared)?[['board','Plays','']]:[])]
+    :[['bench','Bench',benchN],...(usePlan()?[['plan','Plan','']]:[]),['players','Players',''],['log','Log',d.batches.length||''],['stats','Stats',''],['minutes','Minutes',''],['sched','Schedule',''],['board','Board',''],['coach','Coach',''],['setup','Setup','']];
   $('tabs').innerHTML=tabs.map(([t,l,c])=>`<button class="tab" role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab===t}">${l}${c!==''?`<span class="ct">${c}</span>`:''}</button>`).join('');
 }
 function upNext(g,d,id){
@@ -2318,10 +2333,152 @@ function renderCoach(){
     h+=`</div><button class="linkb" data-act="cmdel" data-i="${i}">Remove</button></div>`;});
   return h;
 }
+/* ---------- Coaching board: drag players and the ball, draw runs and passes, animate a play step by step ---------- */
+// A play is plain data so any app can draw it: x/y are 0-100 across and down the shown field (we attack the top).
+const BFIELD={full:105,half:52.5,third:35};const BW=68;
+const BKIND={us:'Player',them:'Opponent',ball:'Ball',cone:'Cone'};
+function newPlay(field){return {id:'pl'+Date.now().toString(36),title:'',field:field||'full',objects:[{id:'ball',kind:'ball',label:''}],steps:[{caption:'',pos:{ball:{x:50,y:50}},arrows:[],draw:[]}],shared:false};}
+const BD=()=>{if(!UI.bd)UI.bd={play:newPlay(),step:0,tool:'move',hist:[]};return UI.bd;};
+const bstep=()=>{const b=BD();return b.play.steps[Math.min(b.step,b.play.steps.length-1)];};
+function bsnap(){const b=BD();b.hist.push(JSON.stringify(b.play));if(b.hist.length>40)b.hist.shift();}
+// AI plays come back with positions as a list; the board keeps them keyed by object id.
+function playFromAI(r){const p={id:'pl'+Date.now().toString(36),title:r.title,field:r.field,notes:r.notes,objects:r.objects,shared:false,
+  steps:r.steps.map(s=>({caption:s.caption,pos:Object.fromEntries(s.pos.map(q=>[q.id,{x:q.x,y:q.y}])),arrows:s.arrows.map(a=>({k:a.kind,x1:a.from.x,y1:a.from.y,x2:a.to.x,y2:a.to.y})),draw:[]}))};
+  // Anything not placed in a step stays where it was in the step before.
+  p.steps.forEach((s,i)=>p.objects.forEach(o=>{if(!s.pos[o.id])s.pos[o.id]=i?Object.assign({},p.steps[i-1].pos[o.id]||{x:50,y:50}):{x:50,y:50};}));
+  return p;}
+function fieldSVG(field){const H=BFIELD[field];const L=[];const st='fill="none" stroke="rgba(255,255,255,.75)" stroke-width=".35"';
+  L.push(`<rect x="0" y="0" width="${BW}" height="${H}" ${st}/>`);
+  const box=(top)=>{const y=top?0:H;const s=top?1:-1;
+    L.push(`<rect x="13.84" y="${top?0:H-16.5}" width="40.32" height="16.5" ${st}/><rect x="24.84" y="${top?0:H-5.5}" width="18.32" height="5.5" ${st}/>`);
+    L.push(`<circle cx="34" cy="${y+s*11}" r=".35" fill="rgba(255,255,255,.8)"/><path d="M ${34-7.3} ${y+s*16.5} A 9.15 9.15 0 0 ${top?0:1} ${34+7.3} ${y+s*16.5}" ${st}/>`);
+    L.push(`<rect x="30.34" y="${top?-1.6:H}" width="7.32" height="1.6" fill="rgba(255,255,255,.9)"/>`);};
+  box(true);
+  if(field==='full'){box(false);L.push(`<line x1="0" y1="52.5" x2="${BW}" y2="52.5" ${st}/><circle cx="34" cy="52.5" r="9.15" ${st}/><circle cx="34" cy="52.5" r=".4" fill="rgba(255,255,255,.8)"/>`);}
+  else if(field==='half')L.push(`<path d="M ${34-9.15} ${H} A 9.15 9.15 0 0 1 ${34+9.15} ${H}" ${st}/>`);
+  const stripes=[];for(let i=0;i<H;i+=H/8)stripes.push(`<rect x="0" y="${i}" width="${BW}" height="${H/16}" fill="rgba(255,255,255,.04)"/>`);
+  return stripes.join('')+L.join('');}
+const play_full=f=>f==='full';
+const bxy=(field,q)=>[q.x*BW/100,q.y*BFIELD[field]/100];
+function arrowSVG(a,field,i){const [x1,y1]=bxy(field,{x:a.x1,y:a.y1}),[x2,y2]=bxy(field,{x:a.x2,y:a.y2});
+  const col=a.k==='shot'?'#ffd34d':a.k==='pass'?'#fff':a.k==='dribble'?'#9ef0ff':'#fff';const m=`url(#bm-${a.k})`;
+  let d=`M ${x1} ${y1} L ${x2} ${y2}`;
+  if(a.k==='dribble'){const n=Math.max(4,Math.round(Math.hypot(x2-x1,y2-y1)/2.2));const dx=(x2-x1)/n,dy=(y2-y1)/n,len=Math.hypot(dx,dy)||1,px=-dy/len,py=dx/len;
+    d=`M ${x1} ${y1}`;for(let k=1;k<=n;k++){const w=k===n?0:(k%2?1:-1)*0.9;d+=` L ${x1+dx*k+px*w} ${y1+dy*k+py*w}`;}}
+  return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${a.k==='shot'?.8:.55}" ${a.k==='run'?'stroke-dasharray="1.6 1.1"':''} marker-end="${m}" data-arrow="${i}" class="barrow"/>`;}
+function objSVG(o,q,field,sel){const [x,y]=bxy(field,q);const r=o.kind==='ball'?1.2:o.kind==='cone'?1.3:(play_full(field)?2.9:2.6);
+  let shape;if(o.kind==='cone')shape=`<path d="M ${x} ${y-1.6} L ${x+1.4} ${y+1.1} L ${x-1.4} ${y+1.1} Z" fill="#ff8a1f" stroke="#a34b00" stroke-width=".25"/>`;
+  else if(o.kind==='ball')shape=`<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" stroke="#222" stroke-width=".3"/><circle cx="${x}" cy="${y}" r=".45" fill="#222"/>`;
+  else shape=`<circle cx="${x}" cy="${y}" r="${r}" fill="${o.kind==='us'?'var(--crimson)':'#1f3b73'}" stroke="#fff" stroke-width=".35"/><text x="${x}" y="${y+.85}" text-anchor="middle" font-size="${String(o.label).length>4?1.75:String(o.label).length>3?2.05:2.5}" font-weight="700" fill="#fff" font-family="Barlow Condensed,sans-serif">${esc(o.label||'')}</text>`;
+  return `<g class="bobj${sel?' sel':''}" data-obj="${esc(o.id)}" transform="translate(0,0)">${shape}<circle cx="${x}" cy="${y}" r="${Math.max(r,2.6)}" fill="transparent"/></g>`;}
+function boardSVG(play,stepI,anim){const f=play.field;const H=BFIELD[f];const s=play.steps[stepI];const b=BD();
+  const pos=anim||s.pos;
+  const marks=['run','pass','dribble','shot'].map(k=>`<marker id="bm-${k}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${k==='shot'?'#ffd34d':k==='dribble'?'#9ef0ff':'#fff'}"/></marker>`).join('');
+  return `<svg id="bsvg" class="bsvg" viewBox="-2 -3 ${BW+4} ${H+6}" preserveAspectRatio="xMidYMid meet"><defs>${marks}</defs>
+    <rect x="-2" y="-3" width="${BW+4}" height="${H+6}" fill="#2f7d3a"/>${fieldSVG(f)}
+    ${anim?'':(s.draw||[]).map((dr,i)=>`<polyline points="${dr.pts.map(p=>bxy(f,{x:p[0],y:p[1]}).join(',')).join(' ')}" fill="none" stroke="${dr.c||'#ffd34d'}" stroke-width=".55" stroke-linecap="round" stroke-linejoin="round" data-draw="${i}" class="bdraw"/>`).join('')}
+    ${anim?'':(s.arrows||[]).map((a,i)=>arrowSVG(a,f,i)).join('')}
+    <g id="blive"></g>
+    ${play.objects.filter(o=>o.kind!=='ball').concat(play.objects.filter(o=>o.kind==='ball')).map(o=>pos[o.id]?objSVG(o,pos[o.id],f,b.sel===o.id&&!anim):'').join('')}</svg>`;}
+function renderBoard(){
+  const b=BD();const p=b.play;const ed=canEdit();const c=CFG();const plays=(c.plays||[]).filter(x=>ed||x.shared);let h='';
+  if(!ed){h+=`<div class="card"><h3>Team plays</h3>${plays.length?'':'<p class="muted">No plays shared yet.</p>'}${plays.map(x=>`<button class="btn small" data-act="bopen" data-id="${x.id}">${esc(x.title||'Play')}</button>`).join(' ')}</div>`;
+    if(!plays.length)return h;}
+  const s=bstep();
+  h+=`<div class="card board ${UI.bfull?'bfullscreen':''}">`;
+  if(ed)h+=`<div class="btop"><input id="b-title" class="btitle" placeholder="Name this play" value="${esc(p.title||'')}"><div class="seg bfield">${['full','half','third'].map(f=>`<button data-act="bfield" data-f="${f}" aria-pressed="${p.field===f}">${f==='full'?'Full':f==='half'?'Half':'Third'}</button>`).join('')}</div></div>`;
+  else h+=`<div class="btop"><b class="btitle">${esc(p.title||'Play')}</b></div>`;
+  if(ed){const tools=[['move','✋ Move'],['run','⤳ Run'],['pass','→ Pass'],['dribble','〰 Dribble'],['shot','⚡ Shot'],['draw','✏️ Draw'],['erase','🧽 Erase']];
+    h+=`<div class="btools">${tools.map(([t,l])=>`<button data-act="btool" data-t="${t}" aria-pressed="${b.tool===t}">${l}</button>`).join('')}</div>
+      <div class="btools add"><button data-act="badd" data-k="us">+ Player</button><button data-act="badd" data-k="them">+ Opponent</button><button data-act="badd" data-k="cone">+ Cone</button>${p.objects.some(o=>o.kind==='ball')?'':'<button data-act="badd" data-k="ball">+ Ball</button>'}<button data-act="blineup">Our lineup</button><button data-act="bundo" ${b.hist.length?'':'disabled'}>↶ Undo</button><button data-act="bclear">Clear</button></div>`;}
+  h+=`<div class="bwrap">${boardSVG(p,b.step,UI.banim)}<button class="bfs" data-act="bfull" aria-label="Full screen">${UI.bfull?'✕':'⤢'}</button></div>`;
+  if(b.sel&&ed){const o=p.objects.find(x=>x.id===b.sel);if(o)h+=`<div class="bsel">${BKIND[o.kind]}${o.kind==='us'||o.kind==='them'?` <input id="b-label" maxlength="6" value="${esc(o.label)}" placeholder="Label"> <button class="btn small" data-act="blabel">Set</button>`:''} <button class="btn small danger-s" data-act="bdel">Remove</button></div>`;}
+  h+=`<div class="bsteps">${p.steps.map((x,i)=>`<button data-act="bstep" data-i="${i}" aria-pressed="${i===b.step}">${i+1}</button>`).join('')}${ed?`<button data-act="bstepadd">+ Step</button>${p.steps.length>1?'<button data-act="bstepdel">− Step</button>':''}`:''}<button class="btn small primary-s" data-act="bplay" ${p.steps.length>1?'':'disabled'}>${UI.banim?'■ Stop':'▶ Play'}</button></div>`;
+  h+=ed?`<input id="b-cap" class="bcap" placeholder="What happens in step ${b.step+1}?" value="${esc(s.caption||'')}">`:(s.caption?`<p class="bcapv">${esc(s.caption)}</p>`:'');
+  if(p.notes)h+=`<p class="fine">${esc(p.notes)}</p>`;
+  if(ed){h+=`<div class="calbtns"><button class="btn small primary-s" data-act="bsave">Save play</button><button class="btn small" data-act="bnew">New play</button>${(c.plays||[]).some(x=>x.id===p.id)?`<button class="btn small" data-act="bshare">${p.shared?'Shared with the team ✓':'Share with the team'}</button>`:''}</div>`;
+    h+=`<div class="bai"><b>🤖 Draw it for me</b><textarea id="b-ai" rows="2" placeholder="e.g. 2v1 overlap down the left from our ${esc(c.formation||'')}">${esc(UI.boardAsk||'')}</textarea><button class="btn small" data-act="bai" ${UI.bbusy?'disabled':''}>${UI.bbusy?'Drawing…':'Draw it'}</button></div>`;}
+  h+=`</div>`;
+  if(ed&&(c.plays||[]).length)h+=`<div class="card"><h3>Saved plays</h3>${c.plays.map(x=>`<div class="srow"><div class="sinfo"><b>${esc(x.title||'Play')}</b><div class="fine">${x.steps.length} step${x.steps.length>1?'s':''}${x.shared?' · shared':''}</div></div><button class="btn small" data-act="bopen" data-id="${x.id}">Open</button><button class="btn small ${armed('bpdel'+x.id)?'danger-s armed':''}" data-act="bpdel" data-id="${x.id}">${armed('bpdel'+x.id)?'Tap again':'Delete'}</button></div>`).join('')}</div>`;
+  return h;
+}
+// Pointer handling: drag players, draw arrows and freehand lines.
+function bPoint(e){const svg=$('bsvg');const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const q=pt.matrixTransform(svg.getScreenCTM().inverse());
+  const f=BD().play.field;return {x:Math.max(0,Math.min(100,q.x/BW*100)),y:Math.max(0,Math.min(100,q.y/BFIELD[f]*100))};}
+document.addEventListener('pointerdown',e=>{const svg=e.target.closest&&e.target.closest('#bsvg');if(!svg||!canEdit()||UI.banim)return;
+  const b=BD();const s=bstep();const at=bPoint(e);const og=e.target.closest('[data-obj]');
+  if(b.tool==='erase'){const ar=e.target.closest('[data-arrow]'),dr=e.target.closest('[data-draw]');
+    if(ar){bsnap();s.arrows.splice(+ar.dataset.arrow,1);}else if(dr){bsnap();s.draw.splice(+dr.dataset.draw,1);}else if(og){bsnap();bRemove(og.dataset.obj);}
+    renderPanel();return;}
+  e.preventDefault();try{svg.setPointerCapture(e.pointerId);}catch(err){}
+  if(b.tool==='move'){if(!og){b.sel=null;renderPanel();return;}b.sel=og.dataset.obj;const q=s.pos[b.sel];UI.bdrag={kind:'obj',id:b.sel,dx:q.x-at.x,dy:q.y-at.y,moved:false,el:og};bsnap();return;}
+  if(b.tool==='draw'){UI.bdrag={kind:'draw',pts:[[at.x,at.y]]};return;}
+  UI.bdrag={kind:'arrow',k:b.tool,x1:at.x,y1:at.y,x2:at.x,y2:at.y};
+},{passive:false});
+document.addEventListener('pointermove',e=>{const d=UI.bdrag;if(!d||!$('bsvg'))return;e.preventDefault();const at=bPoint(e);const b=BD();const f=b.play.field;const live=$('blive');
+  if(d.kind==='obj'){const q={x:Math.max(0,Math.min(100,at.x+d.dx)),y:Math.max(0,Math.min(100,at.y+d.dy))};const old=bstep().pos[d.id];
+    const [ox,oy]=bxy(f,old),[nx,ny]=bxy(f,q);d.el.setAttribute('transform',`translate(${nx-ox},${ny-oy})`);d.q=q;d.moved=true;}
+  else if(d.kind==='draw'){d.pts.push([Math.round(at.x*10)/10,Math.round(at.y*10)/10]);live.innerHTML=`<polyline points="${d.pts.map(p=>bxy(f,{x:p[0],y:p[1]}).join(',')).join(' ')}" fill="none" stroke="#ffd34d" stroke-width=".55" stroke-linecap="round"/>`;}
+  else{d.x2=at.x;d.y2=at.y;live.innerHTML=arrowSVG(d,f,-1);}
+},{passive:false});
+document.addEventListener('pointerup',()=>{const d=UI.bdrag;if(!d)return;UI.bdrag=null;const s=bstep();const b=BD();
+  if(d.kind==='obj'){if(d.moved&&d.q)s.pos[d.id]={x:Math.round(d.q.x*10)/10,y:Math.round(d.q.y*10)/10};else b.hist.pop();}
+  else if(d.kind==='draw'){if(d.pts.length>2){bsnap();s.draw.push({pts:d.pts});}}
+  else if(Math.hypot(d.x2-d.x1,d.y2-d.y1)>2){bsnap();s.arrows.push({k:d.k,x1:Math.round(d.x1*10)/10,y1:Math.round(d.y1*10)/10,x2:Math.round(d.x2*10)/10,y2:Math.round(d.y2*10)/10});}
+  renderPanel();});
+function bRemove(id){const p=BD().play;p.objects=p.objects.filter(o=>o.id!==id);p.steps.forEach(s=>delete s.pos[id]);if(BD().sel===id)BD().sel=null;}
+function bAdd(kind,x,y,label){const p=BD().play;let n=1;while(p.objects.some(o=>o.id===kind[0]+n))n++;const id=kind==='ball'?'ball':kind[0]+n;
+  p.objects.push({id,kind,label:label!=null?label:(kind==='us'?String(n):kind==='them'?'':'')});p.steps.forEach(s=>{s.pos[id]={x,y};});return id;}
+// Animate between steps: everything glides from one step's spot to the next.
+function bPlayAnim(){const p=BD().play;if(UI.banim){UI.banimStop=true;return;}
+  let i=0,t0=performance.now();const dur=1300,hold=500;UI.banimStop=false;
+  const frame=now=>{if(UI.banimStop||S.tab!=='board'){UI.banim=null;renderPanel();return;}
+    const a=p.steps[i],b=p.steps[i+1];if(!b){UI.banim=null;BD().step=p.steps.length-1;renderPanel();return;}
+    let k=Math.min(1,Math.max(0,(now-t0-hold)/dur));k=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+    const pos={};p.objects.forEach(o=>{const q0=a.pos[o.id],q1=b.pos[o.id]||q0;if(q0)pos[o.id]={x:q0.x+(q1.x-q0.x)*k,y:q0.y+(q1.y-q0.y)*k};});
+    UI.banim=pos;BD().step=i;const w=document.querySelector('.bwrap');if(w)w.innerHTML=boardSVG(p,i,pos)+`<button class="bfs" data-act="bfull">${UI.bfull?'✕':'⤢'}</button>`;
+    if(now-t0>=hold+dur){i++;t0=now;}requestAnimationFrame(frame);};
+  UI.banim=p.steps[0].pos;renderPanel();requestAnimationFrame(frame);}
+function bReadInputs(){const b=BD();const t=$('b-title');if(t)b.play.title=t.value.trim().slice(0,60);const c=$('b-cap');if(c)bstep().caption=c.value.trim().slice(0,200);}
+async function bAskAI(){const el=$('b-ai');const q=(el&&el.value||'').trim();if(!q||UI.bbusy)return;UI.boardAsk=q;UI.bbusy=true;renderPanel();
+  const j=await aiCall('play',q,{});UI.bbusy=false;
+  if(j.error)say(j.error);else{bsnap();const b=BD();b.play=playFromAI(j.result);b.step=0;b.sel=null;UI.boardAsk='';UI.coachLeft=j.left;say('Here’s the play. Drag anything to adjust it, then save.');}
+  renderAll();}
+function boardAct(a,ds){const b=BD();const p=b.play;bReadInputs();
+  switch(a){
+    case 'btool':b.tool=ds.t;b.sel=null;break;
+    case 'bfield':if(p.field!==ds.f){bsnap();p.field=ds.f;}break;
+    case 'badd':{bsnap();const id=bAdd(ds.k,ds.k==='them'?50:ds.k==='ball'?50:ds.k==='cone'?30+Math.random()*40:50,ds.k==='them'?35:ds.k==='ball'?50:ds.k==='cone'?40+Math.random()*20:65);b.sel=id;b.tool='move';break;}
+    case 'blineup':{bsnap();const g=G();const d=replay(g);p.objects.filter(o=>o.kind==='us').forEach(o=>bRemove(o.id));
+      // Our formation, labeled with who's on the field now (or the position when the spot is empty).
+      formOf(g.form).forEach(pi=>{const nmv=d.L[pi.id]?nm(d.L[pi.id]).split(' ')[0].slice(0,6):pi.s;bAdd('us',pi.x,Math.min(96,pi.y),nmv);});
+      b.tool='move';say('Lineup placed. Drag players to show the movement.');break;}
+    case 'bundo':if(b.hist.length){b.play=JSON.parse(b.hist.pop());b.step=Math.min(b.step,b.play.steps.length-1);}break;
+    case 'bclear':bsnap();bstep().arrows=[];bstep().draw=[];break;
+    case 'bstep':b.step=+ds.i;b.sel=null;break;
+    case 'bstepadd':{bsnap();const s=bstep();p.steps.splice(b.step+1,0,{caption:'',pos:JSON.parse(JSON.stringify(s.pos)),arrows:[],draw:[]});b.step++;say('Step '+(b.step+1)+': move players to where they end up');break;}
+    case 'bstepdel':if(p.steps.length>1){bsnap();p.steps.splice(b.step,1);b.step=Math.max(0,b.step-1);}break;
+    case 'bplay':bPlayAnim();return;
+    case 'bfull':UI.bfull=!UI.bfull;break;
+    case 'blabel':{const o=p.objects.find(x=>x.id===b.sel);const v=($('b-label')||{}).value;if(o&&v!=null){bsnap();o.label=v.trim().slice(0,6);}break;}
+    case 'bdel':if(b.sel){bsnap();bRemove(b.sel);}break;
+    case 'bnew':UI.bd={play:newPlay(p.field),step:0,tool:'move',hist:[]};break;
+    case 'bsave':{const c=CFG();c.plays=Array.isArray(c.plays)?c.plays:[];if(!p.title)p.title='Play '+(c.plays.length+1);p.at=Date.now();
+      const i=c.plays.findIndex(x=>x.id===p.id);const copy=JSON.parse(JSON.stringify(p));if(i>=0)c.plays[i]=copy;else{if(c.plays.length>=40){say('40 plays max. Delete one first.');break;}c.plays.push(copy);}
+      say('Play saved');save();break;}
+    case 'bshare':{const c=CFG();const x=(c.plays||[]).find(q=>q.id===p.id);if(x){x.shared=!x.shared;p.shared=x.shared;say(x.shared?'Parents can now see this play':'Play hidden from parents');save();}break;}
+    case 'bopen':{const x=(CFG().plays||[]).find(q=>q.id===ds.id);if(x){UI.bd={play:JSON.parse(JSON.stringify(x)),step:0,tool:'move',hist:[]};}break;}
+    case 'bpdel':if(armed('bpdel'+ds.id)){const c=CFG();c.plays=(c.plays||[]).filter(q=>q.id!==ds.id);UI.arm=null;say('Play deleted');save();}else arm('bpdel'+ds.id);break;
+    case 'bai':bAskAI();return;
+  }
+  renderAll();
+}
 function renderPanel(){
+  if(UI.bdrag)return; // don't redraw under a finger that's dragging on the board
   renderTabs();const d=replay(G());const b=$('tbody');
   if(S.tab==='sched')b.innerHTML=renderSchedule();
   else if(S.tab==='coach'&&!isParent())b.innerHTML=renderCoach();
+  else if(S.tab==='board')b.innerHTML=renderBoard();
   else if(isParent())b.innerHTML=S.tab==='stats'?renderParentStats(d):S.tab==='players'?renderTeam(d):S.tab==='log'?renderGoals(d):renderParentBench(d);
   else b.innerHTML=S.tab==='plan'&&usePlan()?renderPlan(d):S.tab==='players'?renderPlayers(d):S.tab==='log'?renderLog(d):S.tab==='stats'?renderStats(d):S.tab==='minutes'?renderMinutes():S.tab==='setup'?renderSetup():renderBench(d);
   if(UI.focus){const el=$(UI.focus);UI.focus=null;if(el){el.focus();try{el.select();}catch(e){}}}
