@@ -335,6 +335,12 @@ details.posren{margin-top:10px}details.posren summary{cursor:pointer;font:700 17
 .gameinfo .cd{font-weight:700;color:var(--crimson)}
 .maplink{border:1px solid var(--line);border-radius:20px;padding:3px 12px;color:var(--ink);text-decoration:none;font-weight:600;font-size:13.5px;background:var(--surface-2)}
 .songrow{gap:8px;flex-wrap:wrap}
+.calbtns{display:flex;gap:6px;flex-wrap:wrap}
+.dows{margin:8px 0}.dows button{min-width:52px}
+.sday{font:700 15px "Barlow Condensed",sans-serif;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin:12px 0 4px}
+.srow{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.srow.cx .sinfo b{text-decoration:line-through;color:var(--muted)}
+.stime{font:700 16px "Barlow Condensed",sans-serif;min-width:64px}.sinfo{flex:1;min-width:150px}.sacts{display:flex;gap:4px;flex-wrap:wrap}
 .offck{color:#1a7f37;font-weight:700}
 .official{grid-column:1/-1;text-align:center;font:600 14px "Barlow",sans-serif;color:#1a7f37}
 .linkb{background:none;border:0;color:var(--crimson);font:600 14px "Barlow",sans-serif;text-decoration:underline;padding:0 4px;cursor:pointer}
@@ -1490,7 +1496,11 @@ async function setCode(){
 }
 
 /* ---------- Click handling ---------- */
-const VIEW_OK=new Set(['sheetclose','game','tab','unlock','song','cancel','pickcancel','teamgo','pstatopen','pstat','pstatundo']);
+const VIEW_OK=new Set(['sheetclose','game','tab','unlock','song','cancel','pickcancel','teamgo','pstatopen','pstat','pstatundo','schedpast']);
+// Copy buttons work on the team and club pages alike.
+document.addEventListener('click',e=>{const b=e.target.closest('[data-copy]');if(!b)return;const u=b.dataset.copy;
+  const done=()=>{const t=b.textContent;b.textContent='Copied ✓';setTimeout(()=>{b.textContent=t;},1800);};
+  try{navigator.clipboard.writeText(u).then(done,()=>prompt('Copy this link',u));}catch(err){prompt('Copy this link',u);}});
 function act(a,ds){
   if(!CFG()&&a!=='teamgo')return;
   const g=CFG()?G():null;
@@ -1506,6 +1516,20 @@ function act(a,ds){
       if(String(v('off-pku')).trim()!==''&&String(v('off-pkt')).trim()!=='')f.pk={us:n(v('off-pku')),them:n(v('off-pkt'))};
       setFinal(GC(),f);return;}
     case 'offdel':if(armed('offdel')){UI.arm=null;setFinal(GC(),null);return;}arm('offdel');say('Tap again to remove the official result');break;
+    case 'schedpast':UI.schedPast=!UI.schedPast;break;
+    case 'pdow':{const pf=readPrac();const d0=+ds.d;pf.days=pf.days.includes(d0)?pf.days.filter(x=>x!==d0):pf.days.concat(d0).sort();UI.prac=pf;break;}
+    case 'padd':{const pf=readPrac();UI.prac=pf;const c=CFG();const dates=practiceDates(pf.days,pf.from,pf.to,parseSkips(pf.skip,pf.from,pf.to));
+      if(!dates.length){say('No dates match. Pick days and a date range.');break;}
+      if(!/^\d{2}:\d{2}$/.test(pf.time)){say('Pick a start time');break;}
+      c.events=Array.isArray(c.events)?c.events:[];const series=evId();const have=new Set(c.events.filter(e=>e.type==='practice').map(e=>e.start));let n=0;
+      dates.forEach(k=>{const start=k+'T'+pf.time;if(have.has(start))return;c.events.push({id:evId()+n,type:'practice',title:'Practice',start,dur:Math.max(15,Math.min(240,+pf.dur||90)),place:pf.place.trim(),note:pf.note.trim(),series});n++;});
+      c.events.sort((a,b)=>String(a.start).localeCompare(String(b.start)));say(n+' practice'+(n===1?'':'s')+' added');save();break;}
+    case 'evadd':{const v=id=>(($(id)||{}).value||'').trim();const at=v('ev-at');if(!v('ev-title')||!at){say('Add what and when');break;}
+      const c=CFG();c.events=Array.isArray(c.events)?c.events:[];c.events.push({id:evId(),type:'event',title:v('ev-title').slice(0,60),start:at.slice(0,16),dur:Math.max(15,Math.min(600,+v('ev-dur')||60)),place:v('ev-place')});
+      c.events.sort((a,b)=>String(a.start).localeCompare(String(b.start)));say('Event added');save();break;}
+    case 'evcx':{const e=(CFG().events||[]).find(x=>x.id===ds.id);if(e){e.cancelled=!e.cancelled;say(e.cancelled?'Cancelled. Subscribed calendars update within the hour.':'Back on the schedule');save();}break;}
+    case 'evdel':if(armed('evdel'+ds.id)){const c=CFG();c.events=(c.events||[]).filter(x=>x.id!==ds.id);UI.arm=null;say('Deleted');save();}else arm('evdel'+ds.id);break;
+    case 'evser':if(armed('evser'+ds.id)){const c=CFG();const e=(c.events||[]).find(x=>x.id===ds.id);if(e){const n0=c.events.length;c.events=c.events.filter(x=>!(x.series===e.series&&x.start>=e.start));say((n0-c.events.length)+' practices deleted');}UI.arm=null;save();}else arm('evser'+ds.id);break;
     case 'song':S.song=!songOn();saveLocal();if(S.song){primeSong();say('Goal song on for this device');}else{try{songAudio().pause();}catch(e){}say('Goal song off for this device');}break;
     case 'fmode':UI.fieldMode=ds.m;UI.sel=null;break;
     case 'sheetclose':UI.sheet=null;break;
@@ -1880,9 +1904,9 @@ function renderHint(){
 function renderTabs(){
   if(CFG()&&!isParent()&&S.tab==='plan'&&!usePlan())S.tab='bench';
   const g=G();const d=replay(g);const benchN=PLAYERS.filter(p=>av(g,p.id)&&!d.on.has(p.id)).length;
-  if(isParent()&&!['bench','stats','players','log'].includes(S.tab))S.tab='bench';
-  const tabs=isParent()?[['bench','Bench',g.started?benchN:''],['stats','Stats',''],['players','Team',''],['log','Goals',g.goals.length||'']]
-    :[['bench','Bench',benchN],...(usePlan()?[['plan','Plan','']]:[]),['players','Players',''],['log','Log',d.batches.length||''],['stats','Stats',''],['minutes','Minutes',''],['setup','Setup','']];
+  if(isParent()&&!['bench','stats','players','log','sched'].includes(S.tab))S.tab='bench';
+  const tabs=isParent()?[['bench','Bench',g.started?benchN:''],['stats','Stats',''],['players','Team',''],['log','Goals',g.goals.length||''],['sched','Schedule','']]
+    :[['bench','Bench',benchN],...(usePlan()?[['plan','Plan','']]:[]),['players','Players',''],['log','Log',d.batches.length||''],['stats','Stats',''],['minutes','Minutes',''],['sched','Schedule',''],['setup','Setup','']];
   $('tabs').innerHTML=tabs.map(([t,l,c])=>`<button class="tab" role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab===t}">${l}${c!==''?`<span class="ct">${c}</span>`:''}</button>`).join('');
 }
 function upNext(g,d,id){
@@ -2156,9 +2180,68 @@ function renderGoals(d){
   h+=keeperHTML(keeperStats([{g,rep:g.started?d:null}]),'Keepers');
   return h;
 }
+/* ---------- Schedule: games plus practices and team events, with a calendar feed to subscribe to ---------- */
+const calUrl=ids=>location.origin+'/api/cal?t='+ids.map(encodeURIComponent).join(',');
+const webcal=u=>u.replace(/^https?:/,'webcal:');
+function calButtons(ids,label){const u=calUrl(ids);
+  return `<div class="calbtns"><a class="btn small primary-s" href="${esc(webcal(u))}">📅 ${esc(label||'Subscribe on this phone')}</a><a class="btn small" href="https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcal(u))}" target="_blank" rel="noopener">Google Calendar</a><button class="btn small" data-copy="${esc(u)}">Copy link</button></div>`;}
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function parseSkips(txt,from,to){const out=new Set();const y0=+from.slice(0,4);
+  String(txt||'').split(/[,;\s]+/).filter(Boolean).forEach(t=>{let m;
+    if((m=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t)))out.add(m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0'));
+    else if((m=/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/.exec(t))){const mo=m[1].padStart(2,'0'),da=m[2].padStart(2,'0');
+      if(m[3])out.add((m[3].length===2?'20'+m[3]:m[3])+'-'+mo+'-'+da);else[y0,y0+1].forEach(y=>{const k=y+'-'+mo+'-'+da;if(k>=from&&k<=to)out.add(k);});}});
+  return out;}
+// Practices on the chosen weekdays from one date to another, skipping the listed dates.
+function practiceDates(days,from,to,skips){const out=[];if(!days.length||!from||!to||to<from)return out;
+  const d=new Date(from+'T12:00');const end=new Date(to+'T12:00');
+  while(d<=end&&out.length<300){const k=ymd(d);if(days.includes(d.getDay())&&!skips.has(k))out.push(k);d.setDate(d.getDate()+1);}
+  return out;}
+const evId=()=>'e'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function schedItems(c){const it=[];
+  c.games.forEach(gc=>{if(gc.dt)it.push({k:'game',at:gc.dt,gc});});
+  (c.events||[]).forEach(e=>{if(e&&e.start)it.push({k:'ev',at:e.start,e});});
+  return it.sort((a,b)=>a.at.localeCompare(b.at));}
+function readPrac(){const v=id=>(($(id)||{}).value||'');const f=UI.prac||{};
+  return {days:f.days||[2,4],time:v('pr-time')||f.time||'18:00',dur:v('pr-dur')||f.dur||90,place:v('pr-place'),from:v('pr-from'),to:v('pr-to'),skip:v('pr-skip'),note:v('pr-note')};}
+function renderSchedule(){
+  const c=CFG();const ed=canEdit();const today=ymd(new Date());let h='';
+  h+=`<div class="card"><h3>Subscribe</h3><p class="fine" style="margin-top:-4px">Add ${esc(c.short||c.name)}’s games and practices to your phone’s calendar. Changes and cancellations show up on their own.</p>${calButtons([S.team])}</div>`;
+  if(ed){const f=UI.prac||{};const def=new Date();const to=new Date();to.setDate(to.getDate()+56);
+    const days=f.days||[2,4];
+    h+=`<div class="card"><details ${(c.events||[]).length?'':'open'}><summary><b>Add practices</b></summary>
+      <div class="seg dows">${DOW.map((n,i)=>`<button data-act="pdow" data-d="${i}" aria-pressed="${days.includes(i)}">${n}</button>`).join('')}</div>
+      <div class="grid2"><label class="fld">Start time<input type="time" id="pr-time" value="${esc(f.time||'18:00')}"></label><label class="fld">Length (min)<input type="number" id="pr-dur" min="15" max="240" inputmode="numeric" value="${esc(f.dur||90)}"></label></div>
+      <label class="fld">Where<input id="pr-place" value="${esc(f.place||'')}" placeholder="e.g. Cottontown Park, Field 3"></label>
+      <div class="grid2"><label class="fld">From<input type="date" id="pr-from" value="${esc(f.from||ymd(def))}"></label><label class="fld">Through<input type="date" id="pr-to" value="${esc(f.to||ymd(to))}"></label></div>
+      <label class="fld">Skip these dates (optional)<input id="pr-skip" value="${esc(f.skip||'')}" placeholder="e.g. 11/26, 11/27, 12/24"></label>
+      <label class="fld">Note (optional)<input id="pr-note" value="${esc(f.note||'')}" placeholder="e.g. Bring both jerseys"></label>
+      <button class="btn small primary-s" data-act="padd">Add practices</button></details>
+      <details><summary><b>Add one event</b></summary>
+      <div class="grid2"><label class="fld">What<input id="ev-title" placeholder="e.g. Team photos"></label><label class="fld">When<input type="datetime-local" id="ev-at"></label></div>
+      <div class="grid2"><label class="fld">Length (min)<input type="number" id="ev-dur" min="15" max="600" value="60" inputmode="numeric"></label><label class="fld">Where<input id="ev-place"></label></div>
+      <button class="btn small primary-s" data-act="evadd">Add event</button></details></div>`;}
+  const all=schedItems(c);const past=all.filter(x=>x.at.slice(0,10)<today),up=all.filter(x=>x.at.slice(0,10)>=today);
+  const list=UI.schedPast?past.slice().reverse():up;
+  h+=`<div class="card"><h3>${UI.schedPast?'Past':'Coming up'}</h3>`;
+  if(!list.length)h+=`<p class="muted">${UI.schedPast?'Nothing yet.':'Nothing scheduled. '+(ed?'Add practices above.':'')}</p>`;
+  let lastDay='';
+  list.slice(0,80).forEach(x=>{const day=x.at.slice(0,10);
+    if(day!==lastDay){lastDay=day;h+=`<div class="sday">${esc(new Date(day+'T12:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'}))}</div>`;}
+    const t=new Date(x.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    if(x.k==='game'){const gc=x.gc;const i=c.games.indexOf(gc);
+      h+=`<div class="srow"><span class="stime">${esc(t)}</span><div class="sinfo"><b>⚽ vs ${esc(gc.opp||gc.title)}</b><div class="fine">${esc([gc.field,gc.event].filter(Boolean).join(' · '))}</div></div><button class="btn small" data-act="game" data-i="${i}">Open</button></div>`;}
+    else{const e=x.e;const pr=e.type==='practice';
+      h+=`<div class="srow ${e.cancelled?'cx':''}"><span class="stime">${esc(t)}</span><div class="sinfo"><b>${pr?'🏃 Practice':'📌 '+esc(e.title||'Event')}</b>${e.cancelled?' <span class="pill">Cancelled</span>':''}<div class="fine">${esc([e.place,(e.dur||90)+' min',e.note].filter(Boolean).join(' · '))}</div></div>
+        ${ed?`<span class="sacts"><button class="btn small" data-act="evcx" data-id="${e.id}">${e.cancelled?'Restore':'Cancel'}</button><button class="btn small ${armed('evdel'+e.id)?'danger-s armed':''}" data-act="evdel" data-id="${e.id}">${armed('evdel'+e.id)?'Tap again':'Delete'}</button>${e.series&&!UI.schedPast?`<button class="btn small ${armed('evser'+e.id)?'danger-s armed':''}" data-act="evser" data-id="${e.id}">${armed('evser'+e.id)?'Tap again':'Delete this & later'}</button>`:''}</span>`:''}</div>`;}});
+  h+=`<button class="btn small" data-act="schedpast" style="margin-top:10px">${UI.schedPast?'Show coming up':'Show past'}</button></div>`;
+  return h;
+}
 function renderPanel(){
   renderTabs();const d=replay(G());const b=$('tbody');
-  if(isParent())b.innerHTML=S.tab==='stats'?renderParentStats(d):S.tab==='players'?renderTeam(d):S.tab==='log'?renderGoals(d):renderParentBench(d);
+  if(S.tab==='sched')b.innerHTML=renderSchedule();
+  else if(isParent())b.innerHTML=S.tab==='stats'?renderParentStats(d):S.tab==='players'?renderTeam(d):S.tab==='log'?renderGoals(d):renderParentBench(d);
   else b.innerHTML=S.tab==='plan'&&usePlan()?renderPlan(d):S.tab==='players'?renderPlayers(d):S.tab==='log'?renderLog(d):S.tab==='stats'?renderStats(d):S.tab==='minutes'?renderMinutes():S.tab==='setup'?renderSetup():renderBench(d);
   if(UI.focus){const el=$(UI.focus);UI.focus=null;if(el){el.focus();try{el.select();}catch(e){}}}
 }
@@ -2314,6 +2397,11 @@ function renderClub(){
       return `<a class="crow" href="${gameLink(t.id,g.id)}">${teamBadge(t,'cls')}<div class="cinfo"><b>${esc(t.short||t.name)}</b> vs ${esc(g.opp||'Opponent')}${logoImg(oppLogoOf(g),'ilg')}<div class="fine">${esc(whenText(g))} ${evTag(g)}${s.scorers.length?'<br>'+s.scorers.map(x=>esc(x.by||'Goal')).join(', '):''}</div></div><span class="res r${r}">${r}</span><span class="cfinal">${scoreStr(s)}${s.official?' <span class="offck" title="Official result">✓</span>':''}</span></a>`;}).join('')+'</div></section>';
   }else{
     const teams=d.teams.slice().sort((a,b)=>a.name.localeCompare(b.name));
+    // A family's own calendar: pick your kids' teams, subscribe once.
+    const mine=(Array.isArray(S.myTeams)?S.myTeams:[]).filter(id=>teams.some(t=>t.id===id));
+    h+=`<section class="cs"><h2>My calendar</h2><div class="card"><p class="fine" style="margin-top:0">Tap your player’s team${teams.length>1?'s':''}, then subscribe. Games and practices land in your phone’s calendar and stay up to date.</p>
+      <div class="seg">${teams.map(t=>`<button data-cact="myteam" data-id="${t.id}" aria-pressed="${mine.includes(t.id)}">${esc(t.short||t.name)}</button>`).join('')}</div>
+      ${mine.length?`<div style="margin-top:10px">${calButtons(mine,'Subscribe to my calendar')}</div>`:''}</div></section>`;
     h+=`<section class="cs"><h2>Teams</h2><div class="clist">`+teams.map(t=>{const on=t.games.some(g=>g.s&&g.s.started&&!g.s.fullDone);
       const nx=t.games.filter(g=>(!g.s||!g.s.started)&&tsOf({g})!==Infinity&&tsOf({g})>=day0).sort((a,b)=>tsOf({g:a})-tsOf({g:b}))[0];
       return `<a class="crow" href="${teamLink(t.id)}">${teamBadge(t,'cl')}<div class="cinfo"><b>${esc(t.name)}</b>${t.placing?`<div class="cplace">${esc(placeText(t.placing))}</div>`:''}
@@ -2342,6 +2430,7 @@ document.addEventListener('change',e=>{if(e.target&&e.target.id==='club-logo'){c
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-cact]');if(!b)return;const a=b.dataset.cact;
   if(a==='puball'){publishAll();return;}
   if(a==='view'){S.clubView=b.dataset.v;saveLocal();renderClub();return;}
+  if(a==='myteam'){const id=b.dataset.id;const m=Array.isArray(S.myTeams)?S.myTeams:[];S.myTeams=m.includes(id)?m.filter(x=>x!==id):m.concat(id);saveLocal();renderClub();return;}
   if(a==='edit'){CLUB.edit=true;clubLogoData=null;renderClub();return;}
   if(a==='cancel'){CLUB.edit=false;renderClub();return;}
   if(a==='save'){const nmv=($('club-name')||{}).value||clubName();const club={name:nmv.trim()||clubName(),logo:clubLogoData||clubLogo()};
