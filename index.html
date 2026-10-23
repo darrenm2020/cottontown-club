@@ -335,6 +335,18 @@ details.posren{margin-top:10px}details.posren summary{cursor:pointer;font:700 17
 .gameinfo .cd{font-weight:700;color:var(--crimson)}
 .maplink{border:1px solid var(--line);border-radius:20px;padding:3px 12px;color:var(--ink);text-decoration:none;font-weight:600;font-size:13.5px;background:var(--surface-2)}
 .songrow{gap:8px;flex-wrap:wrap}
+.cmte{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin:8px 0}
+.cm{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;border:1.5px solid var(--line);background:var(--surface-2);border-radius:12px;padding:8px 10px;color:var(--ink);cursor:pointer}
+.cm.on{border-color:var(--crimson);background:color-mix(in srgb,var(--crimson) 8%,var(--surface))}
+.cm b{font:700 15px/1.1 "Barlow Condensed",sans-serif}.cm small{font-size:12px;color:var(--muted);line-height:1.2}.ce{font-size:22px}
+.coachq{width:100%;box-sizing:border-box;border:1.5px solid var(--line);border-radius:12px;padding:10px;font:500 16px "Barlow",sans-serif;background:var(--surface);color:var(--ink);margin:6px 0}
+.ideas{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px}.idea{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:5px 11px;font:500 13px "Barlow",sans-serif;color:var(--ink);cursor:pointer}
+.cq{font:700 18px "Barlow Condensed",sans-serif;margin-bottom:6px}
+.cmans{border-top:1px solid var(--line);padding:8px 0}.cmans p{margin:4px 0 0;line-height:1.45}.cmh{display:flex;gap:8px;align-items:center}.cmh b{font:700 17px "Barlow Condensed",sans-serif}
+.cmans.chair{background:var(--surface-2);border-radius:12px;padding:10px 12px;border-top:0;margin-top:6px}
+.sess{margin-top:8px}.sact{padding:6px 0;border-top:1px dashed var(--line)}.sact ul{margin:4px 0 0 18px;padding:0}
+.thinking{display:flex;gap:10px;align-items:center}.dots span{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--crimson);margin-right:4px;animation:bob 1s infinite}
+.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}@keyframes bob{0%,100%{opacity:.25}50%{opacity:1}}
 .calbtns{display:flex;gap:6px;flex-wrap:wrap}
 .dows{margin:8px 0}.dows button{min-width:52px}
 .sday{font:700 15px "Barlow Condensed",sans-serif;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin:12px 0 4px}
@@ -1195,6 +1207,7 @@ function applyServer(j){
     SY.lastSent[gc.id]=sv;
   });
   if(migrateTeam(S.team,ts))changed=true;
+  lockKnownFinals(ts);
   SY.first=false;
   if(UI.wantGame){openWanted();changed=true;}
   if(changed||first){useTeam();saveLocal();UI.win=undefined;renderAll();}
@@ -1250,7 +1263,7 @@ function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').rep
 const PUB_VER='2026-10-23a';
 /* APP_VER changes with every deploy that coach devices should pick up. When the published page's APP_VER
    differs from the running one, a coach device reloads itself if no clock is running, or shows a Refresh button. */
-const APP_VER='2026-10-24a';
+const APP_VER='2026-10-24b';
 const VER={tag:null,ready:false};
 async function checkVersion(){
   if(!SY.on||!canEdit()||document.visibilityState!=='visible')return;
@@ -1530,6 +1543,13 @@ function act(a,ds){
     case 'evcx':{const e=(CFG().events||[]).find(x=>x.id===ds.id);if(e){e.cancelled=!e.cancelled;say(e.cancelled?'Cancelled. Subscribed calendars update within the hour.':'Back on the schedule');save();}break;}
     case 'evdel':if(armed('evdel'+ds.id)){const c=CFG();c.events=(c.events||[]).filter(x=>x.id!==ds.id);UI.arm=null;say('Deleted');save();}else arm('evdel'+ds.id);break;
     case 'evser':if(armed('evser'+ds.id)){const c=CFG();const e=(c.events||[]).find(x=>x.id===ds.id);if(e){const n0=c.events.length;c.events=c.events.filter(x=>!(x.series===e.series&&x.start>=e.start));say((n0-c.events.length)+' practices deleted');}UI.arm=null;save();}else arm('evser'+ds.id);break;
+    case 'cmpick':{const p=UI.coachPick||[];UI.coachDraft=($('coach-q')||{}).value||UI.coachDraft;UI.coachPick=p.includes(ds.id)?p.filter(x=>x!==ds.id):p.concat(ds.id).slice(-4);break;}
+    case 'cmclear':UI.coachDraft=($('coach-q')||{}).value||UI.coachDraft;UI.coachPick=[];break;
+    case 'cmidea':UI.coachDraft=ds.t;UI.focus='coach-q';break;
+    case 'cmask':askCommittee();return;
+    case 'cmfollow':UI.coachDraft='';UI.focus='coach-q';say('Ask your follow-up. The committee remembers this conversation.');break;
+    case 'cmdel':{const log=coachLog();log.splice(+ds.i,1);saveLocal();break;}
+    case 'cmboard':{const x=coachLog()[+ds.i];if(x&&x.a.chair.session[0]){UI.board=UI.board||{};UI.boardAsk=x.a.chair.session[0].name+': '+x.a.chair.session[0].setup;S.tab='board';say('Describe the drill to the board AI, or press Draw it');}break;}
     case 'song':S.song=!songOn();saveLocal();if(S.song){primeSong();say('Goal song on for this device');}else{try{songAudio().pause();}catch(e){}say('Goal song off for this device');}break;
     case 'fmode':UI.fieldMode=ds.m;UI.sel=null;break;
     case 'sheetclose':UI.sheet=null;break;
@@ -1692,6 +1712,16 @@ document.addEventListener('change',e=>{
 });
 
 /* ---------- Rendering ---------- */
+/* Official results confirmed by the coach after the fact. A coach's device locks each one once (the server needs a
+   coach code), then marks it done in the team's fixes so no other device repeats it. */
+const KNOWN_FINALS={cottontown:[{gid:'g1022',fix:'g1022-final-2026-10-24',final:{us:2,them:3,src:'Coach',note:'Thu 10/22 vs AFC Huntsville, confirmed by the coach'}}]};
+function lockKnownFinals(ts){
+  const list=KNOWN_FINALS[S.team];if(!list||!SY.on||!myCode()||!ts.cfg)return;
+  list.forEach(k=>{const c=ts.cfg;c.fixes=Array.isArray(c.fixes)?c.fixes:[];if(c.fixes.includes(k.fix)||UI['lk'+k.fix])return;
+    const gc=c.games.find(x=>x.id===k.gid);if(!gc)return;
+    if(ts.locks&&ts.locks[k.gid]){c.fixes.push(k.fix);save();return;}
+    UI['lk'+k.fix]=true;setFinal(gc,k.final).then(()=>{if(ts.locks&&ts.locks[k.gid]&&!c.fixes.includes(k.fix)){c.fixes.push(k.fix);save();}});});
+}
 /* Official result (confirmed from SincSports, the ref, etc.): saved on the server apart from the game,
    so no phone can change it. It wins over the tracked score everywhere. */
 const lockOf=gc=>{const ts=TS();return (ts&&ts.locks&&gc&&ts.locks[gc.id])||null;};
@@ -1906,7 +1936,7 @@ function renderTabs(){
   const g=G();const d=replay(g);const benchN=PLAYERS.filter(p=>av(g,p.id)&&!d.on.has(p.id)).length;
   if(isParent()&&!['bench','stats','players','log','sched'].includes(S.tab))S.tab='bench';
   const tabs=isParent()?[['bench','Bench',g.started?benchN:''],['stats','Stats',''],['players','Team',''],['log','Goals',g.goals.length||''],['sched','Schedule','']]
-    :[['bench','Bench',benchN],...(usePlan()?[['plan','Plan','']]:[]),['players','Players',''],['log','Log',d.batches.length||''],['stats','Stats',''],['minutes','Minutes',''],['sched','Schedule',''],['setup','Setup','']];
+    :[['bench','Bench',benchN],...(usePlan()?[['plan','Plan','']]:[]),['players','Players',''],['log','Log',d.batches.length||''],['stats','Stats',''],['minutes','Minutes',''],['sched','Schedule',''],['coach','Coach',''],['setup','Setup','']];
   $('tabs').innerHTML=tabs.map(([t,l,c])=>`<button class="tab" role="tab" data-act="tab" data-t="${t}" aria-selected="${S.tab===t}">${l}${c!==''?`<span class="ct">${c}</span>`:''}</button>`).join('');
 }
 function upNext(g,d,id){
@@ -2238,9 +2268,60 @@ function renderSchedule(){
   h+=`<button class="btn small" data-act="schedpast" style="margin-top:10px">${UI.schedPast?'Show coming up':'Show past'}</button></div>`;
   return h;
 }
+/* ---------- Coach the Coach: an AI committee of fictional coaches, each inspired by a school of coaching ---------- */
+const COACH_API='/api/coach';
+const COMMITTEE_FALLBACK=[['space','Professor Hendrik Van der Space','🎓','Shape and spacing'],['dressingroom','Sir Duncan Dressingroom','🫖','Culture, motivation, parents'],
+  ['gegenpress','Dieter Gegenpress','⚡','Winning the ball back'],['zonale','Maestro Enzo Zonale','🛡️','Defending and set pieces'],['grassroots','Coach Rosie Grassroots','🌱','Age-appropriate fun'],
+  ['tenacity','Coach Tess Tenacity','🔥','Coaching girls, confidence'],['shotstopper','Sam "Safe Hands" Shotstopper','🧤','Goalkeepers'],['mindset','Dr. Grace Mindset','🧠','Nerves, mistakes, team chemistry']]
+  .map(([id,name,emoji,strengths])=>({id,name,emoji,strengths}));
+const COACH_IDEAS=['My team bunches up around the ball. What do I do?','Plan a 75-minute practice on pressing for my team','A parent is upset about playing time. How should I handle it?','How do I build confidence after a big loss?','Our keeper is nervous on goal kicks'];
+const committee=()=>UI.committee||COMMITTEE_FALLBACK;
+const memberOf=id=>committee().find(m=>m.id===id)||{name:id,emoji:'💬'};
+const coachLog=()=>{S.coachLog=S.coachLog||{};S.coachLog[S.team]=S.coachLog[S.team]||[];return S.coachLog[S.team];};
+async function loadCommittee(){if(UI.committee||UI.committeeLoading)return;UI.committeeLoading=true;
+  try{const r=await fetch(COACH_API+'?committee=1');if(r.ok){const j=await r.json();if(Array.isArray(j.members)&&j.members.length){UI.committee=j.members;if(S.tab==='coach')renderAll();}}}catch(e){}}
+async function aiCall(mode,question,extra){
+  if(!SY.on)return {error:'Connect to the live site to use the AI committee.'};
+  try{const r=await fetch(COACH_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({team:S.team,code:myCode()||S.master||'',mode,question,positions:POS.join(' ')},extra||{}))});
+    const j=await r.json().catch(()=>({}));return r.ok?j:{error:j.error||'The AI had a problem. Try again.'};}
+  catch(e){return {error:'No connection. Try again in a moment.'};}}
+async function askCommittee(){
+  const el=$('coach-q');const q=(el&&el.value||'').trim();if(!q||UI.coachBusy)return;
+  UI.coachBusy=true;UI.coachDraft='';renderAll();
+  const log=coachLog();const history=log.slice(-3).map(x=>({q:x.q,a:x.a}));
+  const j=await aiCall('ask',q,{members:UI.coachPick||[],history});
+  UI.coachBusy=false;
+  if(j.error){UI.coachDraft=q;say(j.error);}
+  else{log.push({q,a:j.result,at:Date.now()});if(log.length>30)log.splice(0,log.length-30);UI.coachLeft=j.left;saveLocal();}
+  renderAll();
+}
+function sessionText(a){return (a.chair.session||[]).map((s,i)=>`${i+1}. ${s.name} (${s.minutes} min)\n   ${s.setup}\n${s.points.map(p=>'   • '+p).join('\n')}`).join('\n');}
+function renderCoach(){
+  loadCommittee();
+  const pick=UI.coachPick||[];let h='';
+  h+=`<div class="card"><h3>Coach the Coach</h3><p class="fine" style="margin-top:-4px">Ask the committee anything about your team. Three members answer in their own style, then the chair turns it into a plan. Every member is a fictional AI coach, inspired by a school of coaching, not a real person.</p>
+    <div class="cmte">${committee().map(m=>`<button class="cm ${pick.includes(m.id)?'on':''}" data-act="cmpick" data-id="${m.id}" aria-pressed="${pick.includes(m.id)}" title="${esc(m.strengths||'')}"><span class="ce">${m.emoji}</span><b>${esc(m.name)}</b><small>${esc(m.strengths||'')}</small></button>`).join('')}</div>
+    <p class="fine">${pick.length?'Asking: '+pick.map(id=>esc(memberOf(id).name)).join(', ')+'. <button class="linkb" data-act="cmclear">Let the committee choose</button>':'Tap members to choose who answers, or let the committee pick the best three.'}</p>
+    <textarea id="coach-q" class="coachq" rows="3" placeholder="e.g. My U12 girls lose shape when we press. What should we work on?" ${UI.coachBusy?'disabled':''}>${esc(UI.coachDraft||'')}</textarea>
+    <div class="ideas">${COACH_IDEAS.map(t=>`<button class="idea" data-act="cmidea" data-t="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+    <button class="btn primary-s" data-act="cmask" ${UI.coachBusy?'disabled':''}>${UI.coachBusy?'The committee is thinking…':'Ask the committee'}</button>${UI.coachLeft!=null?`<span class="fine" style="margin-left:8px">${UI.coachLeft} questions left this month</span>`:''}</div>`;
+  const log=coachLog();
+  if(UI.coachBusy)h+=`<div class="card thinking"><div class="dots"><span></span><span></span><span></span></div> Gathering the committee…</div>`;
+  log.slice().reverse().forEach((x,ri)=>{const i=log.length-1-ri;const a=x.a;
+    h+=`<div class="card cans"><div class="cq">“${esc(x.q)}”</div>`;
+    a.members.forEach(m=>{const mm=memberOf(m.id);h+=`<div class="cmans"><div class="cmh"><span class="ce">${mm.emoji}</span><b>${esc(mm.name)}</b></div><p>${esc(m.answer).replace(/\n/g,'<br>')}</p></div>`;});
+    h+=`<div class="cmans chair"><div class="cmh"><span class="ce">📋</span><b>Clara “The Clipboard” Chen, chair</b></div><p>${esc(a.chair.summary)}</p>`;
+    if(a.chair.session&&a.chair.session.length){const tot=a.chair.session.reduce((t,s)=>t+(s.minutes||0),0);
+      h+=`<div class="sess"><div class="dlbl">Practice plan · ${tot} min</div>${a.chair.session.map(s=>`<div class="sact"><b>${esc(s.name)}</b> <span class="muted">${s.minutes} min</span><div class="fine">${esc(s.setup)}</div><ul>${s.points.map(p=>`<li>${esc(p)}</li>`).join('')}</ul></div>`).join('')}</div>
+        <div class="calbtns"><button class="btn small" data-copy="${esc(x.q+'\n\n'+sessionText(a))}">Copy plan</button><button class="btn small" data-act="cmfollow" data-i="${i}">Ask a follow-up</button><button class="btn small" data-act="cmboard" data-i="${i}">Draw it on the board</button></div>`;}
+    else h+=`<div class="calbtns"><button class="btn small" data-act="cmfollow" data-i="${i}">Ask a follow-up</button></div>`;
+    h+=`</div><button class="linkb" data-act="cmdel" data-i="${i}">Remove</button></div>`;});
+  return h;
+}
 function renderPanel(){
   renderTabs();const d=replay(G());const b=$('tbody');
   if(S.tab==='sched')b.innerHTML=renderSchedule();
+  else if(S.tab==='coach'&&!isParent())b.innerHTML=renderCoach();
   else if(isParent())b.innerHTML=S.tab==='stats'?renderParentStats(d):S.tab==='players'?renderTeam(d):S.tab==='log'?renderGoals(d):renderParentBench(d);
   else b.innerHTML=S.tab==='plan'&&usePlan()?renderPlan(d):S.tab==='players'?renderPlayers(d):S.tab==='log'?renderLog(d):S.tab==='stats'?renderStats(d):S.tab==='minutes'?renderMinutes():S.tab==='setup'?renderSetup():renderBench(d);
   if(UI.focus){const el=$(UI.focus);UI.focus=null;if(el){el.focus();try{el.select();}catch(e){}}}
