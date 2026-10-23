@@ -1190,7 +1190,7 @@ function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').rep
 const PUB_VER='2026-10-22a';
 /* APP_VER changes with every deploy that coach devices should pick up. When the published page's APP_VER
    differs from the running one, a coach device reloads itself if no clock is running, or shows a Refresh button. */
-const APP_VER='2026-10-22a';
+const APP_VER='2026-10-23a';
 const VER={tag:null,ready:false};
 async function checkVersion(){
   if(!SY.on||!canEdit()||document.visibilityState!=='visible')return;
@@ -1361,7 +1361,8 @@ function applyPlan(k){
   const g=G();const d=replay(g);const target=PL()[k];if(!target)return;
   const pairs=POS.filter(p=>d.L[p]!==target[p]).map(p=>({pos:p,to:target[p]}));
   if(pairs.length)change(pairs,'Planned subs made');else say('Field already matches the plan');
-  if(g.pending===k)g.pending=null;UI.sel=null;save();renderAll();
+  if(g.pending===k)g.pending=null;if(g.started&&!g.alerted.includes(k))g.alerted.push(k); // made early: no second alert at sub time
+  UI.sel=null;save();renderAll();
 }
 function pickSet(id){
   const g=G();const pk=UI.pick;if(!pk)return;const b=g.plan[pk.k];const old=b[pk.p];
@@ -1530,7 +1531,8 @@ function act(a,ds){
       else arm('planauto');break;
     case 'apply':applyPlan(+ds.k);return;
     case 'startwith':g.start=Object.assign({},PL()[+ds.k]);say('Starting lineup set from '+blockRange(g,+ds.k));save();break;
-    case 'applyq':{const d=replay(g);const q=liveQueue(g,d);if(q.length)change(q.map(x=>({pos:x.pos,to:x.id})),'Subs made');g.queue=[];g.pending=null;UI.sel=null;save();break;}
+    case 'applyq':{const d=replay(g);const q=liveQueue(g,d);if(q.length)change(q.map(x=>({pos:x.pos,to:x.id})),'Subs made');
+      const wk=g.pending==null?winK(g,clock(g)):null;if(wk!=null&&!g.alerted.includes(wk))g.alerted.push(wk);g.queue=[];g.pending=null;UI.sel=null;save();break;}
     case 'planoff':g.planOff=!g.planOff;if(!g.planOff)g.queue=[];UI.sel=null;say(g.planOff?'Plan off. Tap a bench player to line up where she goes in.':'Following the plan again');save();break;
     case 'benchq':if(UI.sel&&UI.sel.type==='player'){queueSet(UI.sel.id,ds.p);UI.sel=null;}break;
     case 'benchnow':if(UI.sel&&UI.sel.type==='player'){const id=UI.sel.id;const d=replay(g);g.queue=(g.queue||[]).filter(q=>q.id!==id);change([{pos:ds.p,to:id}],nm(id)+' in for '+nm(d.L[ds.p]));UI.sel=null;}break;
@@ -1712,21 +1714,25 @@ function renderScore(){
 }
 function renderBanner(){
   const g=G();const el=$('banner');
-  if(pOff(g)){if(g.pending==null||g.fullDone||isParent()){el.innerHTML='';return;}
-    const d=replay(g);const q=liveQueue(g,d);const lines=q.length?describe(d.L,queueTarget(g,d)):[];const isHalf=g.pending*g.sub===g.half;
-    el.innerHTML=`<div class="banner" role="status"><div><h2>${isHalf?'Halftime':'Sub time'}</h2><p>${lines.length?lines.length+' sub'+(lines.length>1?'s':'')+' lined up':'Tap a bench player to choose where she goes in'}</p></div>
+  // Shows a minute before sub time (soon) and stays up once subs are due.
+  const wk=g.fullDone||isParent()?null:winK(g,clock(g));const soon=g.pending==null&&wk!=null;
+  if(pOff(g)){if(wk==null){el.innerHTML='';return;}
+    const d=replay(g);const q=liveQueue(g,d);const lines=q.length?describe(d.L,queueTarget(g,d)):[];const isHalf=wk*g.sub===g.half;
+    if(soon&&!lines.length){el.innerHTML='';return;}
+    el.innerHTML=`<div class="banner" role="status"><div><h2>${soon?'Subs in under a minute':isHalf?'Halftime':'Sub time'}</h2><p>${lines.length?lines.length+' sub'+(lines.length>1?'s':'')+' lined up':'Tap a bench player to choose where she goes in'}</p></div>
       <div class="chg">${lines.map(l=>`<span><i>${l.p||''}</i>${esc(l.t)}</span>`).join('')}</div>
-      <div class="acts">${lines.length?'<button class="btn" data-act="applyq">Make these subs</button>':''}<button class="btn ghost" data-act="dismiss">${lines.length?'Not now':'OK'}</button></div></div>`;return;}
-  if(g.pending==null||g.fullDone||isParent()||!PL()[g.pending]){el.innerHTML='';return;}
-  const k=g.pending;const d=replay(g);const lines=describe(d.L,PL()[k]);
+      <div class="acts">${lines.length?'<button class="btn" data-act="applyq">Make these subs</button>':''}${soon?'':`<button class="btn ghost" data-act="dismiss">${lines.length?'Not now':'OK'}</button>`}</div></div>`;return;}
+  if(wk==null||!PL()[wk]){el.innerHTML='';return;}
+  const k=wk;const d=replay(g);const lines=describe(d.L,PL()[k]);
+  if(soon&&!lines.length){el.innerHTML='';return;}
   const isHalf=k*g.sub===g.half;
-  const title=isHalf?'Halftime: planned subs for the 2nd half':'Sub time: plan for '+blockRange(g,k);
+  const title=soon?'Subs in under a minute: plan for '+blockRange(g,k):isHalf?'Halftime: planned subs for the 2nd half':'Sub time: plan for '+blockRange(g,k);
   const chips=lines.length?lines.map(l=>`<span class="${av(g,l.id)?'':'warn'}"><i>${l.p||''}</i>${esc(l.t)}${av(g,l.id)?'':' (not here)'}</span>`).join('')
     :'<span>The field already matches the plan.</span>';
   el.innerHTML=`<div class="banner" role="status"><div><h2>${title}</h2><p>${lines.length?lines.length+' change'+(lines.length>1?'s':''):'No changes needed'}</p></div>
     <div class="chg">${chips}</div>
     <div class="acts">${lines.length?`<button class="btn" data-act="apply" data-k="${k}">Make planned subs</button>`:''}
-    <button class="btn ghost" data-act="editplan">Change plan</button><button class="btn ghost" data-act="dismiss">${lines.length?'Skip':'OK'}</button></div></div>`;
+    <button class="btn ghost" data-act="editplan">Change plan</button>${soon?'':`<button class="btn ghost" data-act="dismiss">${lines.length?'Skip':'OK'}</button>`}</div></div>`;
 }
 const LINES=`<svg viewBox="0 0 68 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="rgba(255,255,255,.6)" stroke-width="1.5" vector-effect="non-scaling-stroke">
  <rect x="2" y="2" width="64" height="96" vector-effect="non-scaling-stroke"/><line x1="2" y1="50" x2="66" y2="50" vector-effect="non-scaling-stroke"/>
@@ -1840,6 +1846,10 @@ function renderPlan(d){
   const g=G();const gc=GC();const cb=g.started?blockAt(g,d.now):-1;let h='';
   const bad=new Set();PL().forEach((b,i)=>{if(i>cb)POS.forEach(p=>{if(b[p]&&!av(g,b[p]))bad.add(b[p]);});});
   if(bad.size)h+=`<div class="notice">${[...bad].map(nm).join(', ')} ${bad.size>1?'are':'is'} out but still in the plan. Tap a highlighted spot to pick someone else, or rebuild the rotation.</div>`;
+  // Next planned subs, always at the top so they can be made any time, early or late.
+  const nk=cb+1;if(g.started&&!g.fullDone&&!pOff(g)&&PL()[nk]&&!isParent()){const nl=describe(d.L,PL()[nk]);
+    h+=`<div class="ctx live">Next subs at <b>${nk*g.sub}:00</b> (plan for ${blockRange(g,nk)}): ${nl.length?esc(nl.map(l=>l.t).join(', ')):'the field already matches the plan'}.
+      ${nl.length?`<button class="btn small" data-act="apply" data-k="${nk}">Make these subs now</button>`:''}</div>`;}
   h+=`<p class="fine" style="margin-top:0">${esc(gameNote(gc,g))}. Tap any name in an upcoming block to change who plays there. Each block lists who sits; orange means sitting a second block in a row.</p>`;
   h+=`<div class="set planswitch"><span><b>Use the plan for subs</b><br><span class="fine">Off: sub alerts still go off, and you tap bench players to line up where each goes in.</span></span><button class="tog ${g.planOff?'':'on'}" data-act="planoff" aria-pressed="${!g.planOff}">${g.planOff?'Off':'On'}</button></div>`;
   const fv=S.planView!=='list';
