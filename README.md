@@ -1,4 +1,7 @@
-# Cottontown club app
+# Cottontown Beta
+
+The test site: new features are tried here first. Features that work fully move to
+[Cottontown Coach](https://github.com/darrenm2020/cottontown-coach), the app everyone uses.
 
 A team and club app for youth soccer: live game tracking with subs and a rotation plan, a club scoreboard,
 schedules with calendar feeds, messaging, fees, a coaching board and an AI coaching committee.

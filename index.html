@@ -8,8 +8,13 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <meta name="theme-color" content="#9d0208">
-<meta name="apple-mobile-web-app-title" content="Cottontown">
-<title>Game tracker</title>
+<meta name="apple-mobile-web-app-title" content="CT Beta">
+<title>Cottontown Beta</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<meta property="og:title" content="Cottontown Beta">
+<meta property="og:description" content="New features being tested for Cottontown United teams.">
+<meta property="og:image" content="/icon-512.png">
+<meta name="twitter:card" content="summary">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -360,6 +365,7 @@ b.btitle{border:0;padding:0}.bfield button{min-height:36px;padding:0 10px;font-s
 .pchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px}.chip2{display:inline-flex;align-items:center;gap:4px;background:var(--surface-2);border:1px solid var(--line);border-radius:16px;padding:2px 4px 2px 10px;font-size:14px}
 .chip2 button{border:0;background:none;font-size:16px;line-height:1;cursor:pointer;color:var(--muted);padding:2px 6px}.pick{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.pick small{color:var(--muted);font-weight:500}
 .warnt{color:#b45309;font-weight:600}#hub-pteam{min-height:38px;border:1.5px solid var(--line);border-radius:9px;padding:0 8px;background:var(--surface);color:var(--ink);font:600 15px "Barlow",sans-serif;max-width:55%}
+.betatag{display:inline-block;font:700 11px/1 "Barlow",sans-serif;letter-spacing:.06em;background:#f5b400;color:#1a1a1a;border-radius:6px;padding:3px 6px;vertical-align:middle}
 .hubbtn{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;width:58px;height:58px;border-radius:50%;border:0;background:var(--crimson);color:#fff;font-size:26px;box-shadow:0 6px 18px rgba(0,0,0,.25);cursor:pointer}
 .hubdot{position:absolute;top:-2px;right:-2px;min-width:22px;height:22px;border-radius:11px;background:#ffd34d;color:#111;font:700 13px/22px "Barlow",sans-serif;padding:0 5px}
 .hub{position:fixed;inset:0;z-index:60;background:var(--bg,var(--surface-2));display:flex;flex-direction:column}.hub[hidden]{display:none}
@@ -1316,7 +1322,7 @@ function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').rep
 const PUB_VER='2026-10-23a';
 /* APP_VER changes with every deploy that coach devices should pick up. When the published page's APP_VER
    differs from the running one, a coach device reloads itself if no clock is running, or shows a Refresh button. */
-const APP_VER='2026-10-24f';
+const APP_VER='2026-10-24g';
 const VER={tag:null,ready:false};
 async function checkVersion(){
   if(!SY.on||!canEdit()||document.visibilityState!=='visible')return;
@@ -1808,10 +1814,10 @@ const placeIcon=l=>/champion/i.test(l)?'🏆':/finalist/i.test(l)?'🥈':/^3rd/i
 const placeText=pl=>pl&&pl.label?placeIcon(pl.label)+' '+pl.label+(pl.event?', '+pl.event:''):'';
 function renderBrand(){
   const c=CFG();
-  $('bname').textContent=c.name;$('bsub').textContent=(c.sub||'Game tracker')+(c.placing?' · '+placeText(c.placing):'');
+  $('bname').innerHTML=esc(c.name)+' <span class="betatag">BETA</span>';$('bsub').textContent=(c.sub||'Game tracker')+(c.placing?' · '+placeText(c.placing):'');
   const ini=c.name.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
   $('blogo').innerHTML=c.logo?`<img src="${c.logo}" alt="${esc(c.name)}">`:`<span class="badge">${esc(ini)}</span>`;
-  document.title=c.name+' game tracker';
+  document.title=c.name+' (Beta)';
 }
 function renderGames(){
   $('games').innerHTML=`<a class="gbtn clubbtn" href="${clubLink()}"><b>‹ Club</b><small>All teams</small></a>`+(location.protocol.startsWith('http')?`<button class="gbtn clubbtn hubg" id="hubmini" data-hact="open" aria-label="Messages and fees"><b>💬${H.unread?`<span class="hubdot">${H.unread}</span>`:''}</b><small>Messages</small></button>`:'')+CFG().games.map((gc,i)=>gc.imported&&i!==curIdx()&&!(Date.now()-new Date(gc.dt).getTime()<7*864e5)?'':`<button class="gbtn" data-act="game" data-i="${i}" aria-pressed="${i===curIdx()}"><b>${esc(gc.title)}</b><small data-lv="gstat" data-i="${i}">${esc(status(gc))}</small></button>`).join('');
@@ -2667,7 +2673,7 @@ function renderClub(){
   const inSeason=x=>tsOf(x)!==Infinity&&tsOf(x)>=season;
   const results=all.filter(x=>x.g.s&&x.g.s.fullDone&&inSeason(x)).sort((a,b)=>tsOf(b)-tsOf(a)).slice(0,15);
   const canClubEdit=!CLUB.on||!!S.master;
-  let h=`<header class="clubtop"><img src="${clubLogo()}" alt=""><div><h1>${esc(clubName())}</h1><p>Club scoreboard${CLUB.on?(CLUB.ok?' <span class="sync run">Live</span>':' <span class="sync lost">Reconnecting</span>'):''}</p></div></header><main class="clubmain">`;
+  let h=`<header class="clubtop"><img src="${clubLogo()}" alt=""><div><h1>${esc(clubName())}</h1><p><span class="betatag">BETA</span> Club scoreboard${CLUB.on?(CLUB.ok?' <span class="sync run">Live</span>':' <span class="sync lost">Reconnecting</span>'):''}</p></div></header><main class="clubmain">`;
   const recOf=t=>{let w=0,l=0,dr=0;t.games.forEach(g=>{if(!inSeason({g}))return;const r=sResult(g.s);if(r==='W')w++;else if(r==='L')l++;else if(r==='D')dr++;});return `${w}-${dr}-${l}`;};
   const status=(t,g)=>{const s=g.s;
     if(s&&s.started&&!s.fullDone)return `<span class="gl-live"><b>${s.us}–${s.them}</b> <span data-ck="${t.id}/${g.id}">${fmtClock(sClock(s))}</span> <span class="per" data-cp="${t.id}/${g.id}">${sPeriod(s)}</span></span>`;
@@ -3072,7 +3078,7 @@ function adminHTML(){let h=`<section class="cs"><h2>Club admin</h2><div class="s
   d.days.forEach(day=>{h+=`<div class="crow"><div class="cinfo"><b>${esc(new Date(day+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}))}</b></div><button class="btn small" data-cact="bkdl" data-d="${day}">Download</button></div>`;});
   return h+`</div><div class="calbtns" style="margin-top:8px"><button class="btn small primary-s" data-cact="bknow">Back up now</button></div><p class="fine">Everything the club has saved, copied every night and kept 30 days.</p></section>`;}
 function clubInit(){
-  document.querySelector('.app').style.display='none';$('club').hidden=false;document.title='Club scoreboard';
+  document.querySelector('.app').style.display='none';$('club').hidden=false;document.title='Cottontown Beta';
   renderClub();clubFetch();setInterval(()=>{if(document.visibilityState==='visible'&&!CLUB.edit)clubFetch();},5000);setInterval(clubTick,1000);
 }
 
