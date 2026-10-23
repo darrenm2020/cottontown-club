@@ -155,7 +155,7 @@ export default async (req) => {
         const games = await Promise.all(
           (c.games || []).slice(0, 80).map(async (g) => {
             const v = g && okGid(g.id) ? await store.get("game-" + t.id + "-" + g.id, { type: "json" }) : null;
-            return { id: g.id, title: g.title || "", oppLogo: typeof g.oppLogo === "string" ? g.oppLogo : "", opp: g.opp || "", dt: g.dt || "", when: g.when || "", field: g.field || "", place: g.place || "",
+            return { id: g.id, title: g.title || "", oppLogo: typeof g.oppLogo === "string" ? g.oppLogo : "", opp: g.opp || "", dt: g.dt || "", when: g.when || "", field: g.field || "", place: g.place || "", event: typeof g.event === "string" ? g.event.slice(0, 60) : "",
               half: g.half || 30, s: v && v.game ? summarize(v.game, pname) : null };
           })
         );
