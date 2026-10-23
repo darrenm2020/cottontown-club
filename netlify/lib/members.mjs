@@ -97,3 +97,87 @@ export async function joinWithInvite(store, { invite, name, kids }, me) {
   if (inv) { inv.uses = (inv.uses || 0) + 1; await store.setJSON("inv-" + invite, inv); }
   return { member: m, token: await issueToken(store, m.id) };
 }
+
+// ---- Linking families to teams and players ----
+async function teamPlayers(store, team) { const v = await store.get("team-" + team, { type: "json" }); return ((v && v.team && v.team.players) || []); }
+async function loadAll(store) { return (await Promise.all((await allMembers(store)).map((m) => getMember(store, m.id)))).filter(Boolean); }
+
+// A team's roster with the parents linked to each player, plus coaches and families not linked to anyone yet.
+export async function roster(store, me, team) {
+  if (!okId(team) || !isCoachOf(me, team)) return { error: "Only this team's coaches can see this", status: 403 };
+  const players = await teamPlayers(store, team);
+  const all = await loadAll(store);
+  const onTeam = all.filter((m) => (m.teams || []).includes(team));
+  const parentsOf = (pid) => all.filter((m) => (m.kids || []).some((k) => k.team === team && k.player === pid)).map((m) => ({ id: m.id, name: m.name }));
+  return {
+    players: players.map((p) => ({ id: p.id, name: p.name, num: p.num || "", guest: !!p.guest, parents: parentsOf(p.id) })),
+    coaches: onTeam.filter((m) => m.role !== "parent").map((m) => ({ id: m.id, name: m.name, role: m.role })),
+    families: onTeam.filter((m) => m.role === "parent").map((m) => ({ id: m.id, name: m.name, kids: (m.kids || []).filter((k) => k.team === team).map((k) => k.name) })),
+    // Admins can link any parent in the club (siblings on other teams); coaches pick from their own team.
+    pickable: (isAdmin(me) ? all : onTeam).map((m) => ({ id: m.id, name: m.name, role: m.role, teams: m.teams || [] })),
+  };
+}
+export async function link(store, me, { member, team, player }, on) {
+  if (!okId(team) || !isCoachOf(me, team)) return { error: "Only this team's coaches can do that", status: 403 };
+  const m = await getMember(store, member);
+  if (!m) return { error: "That person isn't in the club", status: 404 };
+  if (!isAdmin(me) && !(m.teams || []).includes(team)) return { error: "They need to join this team first (send them the invite link)", status: 403 };
+  const p = (await teamPlayers(store, team)).find((x) => x.id === player);
+  if (!p) return { error: "No such player", status: 404 };
+  m.kids = m.kids || [];
+  if (on) {
+    if (!m.teams.includes(team)) m.teams.push(team);
+    if (!m.kids.some((k) => k.team === team && k.player === player)) m.kids.push({ team, player, name: p.name });
+  } else m.kids = m.kids.filter((k) => !(k.team === team && k.player === player));
+  await saveMember(store, m);
+  return { member: pub(m) };
+}
+// Take someone off a team (their players there too). Coaches can remove families; only admins remove coaches.
+export async function removeFromTeam(store, me, { member, team }) {
+  if (!okId(team) || !isCoachOf(me, team)) return { error: "Only this team's coaches can do that", status: 403 };
+  const m = await getMember(store, member);
+  if (!m) return { error: "not found", status: 404 };
+  if (m.role !== "parent" && !isAdmin(me)) return { error: "Only a club admin can remove a coach", status: 403 };
+  m.teams = (m.teams || []).filter((t) => t !== team);
+  m.kids = (m.kids || []).filter((k) => k.team !== team);
+  await saveMember(store, m);
+  return { member: pub(m) };
+}
+export async function setRole(store, me, { member, role, team }) {
+  if (!isAdmin(me)) return { error: "Only a club admin can change roles", status: 403 };
+  if (!["parent", "coach", "admin"].includes(role)) return { error: "bad role", status: 400 };
+  const m = await getMember(store, member);
+  if (!m) return { error: "not found", status: 404 };
+  if (m.role === "admin" && role !== "admin") {
+    const admins = (await allMembers(store)).filter((x) => x.role === "admin");
+    if (admins.length <= 1) return { error: "The club needs at least one admin", status: 409 };
+  }
+  m.role = role;
+  if (okId(team) && !m.teams.includes(team)) m.teams.push(team);
+  await saveMember(store, m);
+  return { member: pub(m) };
+}
+export async function removeMember(store, me, { member }) {
+  if (!isAdmin(me)) return { error: "Only a club admin can remove people", status: 403 };
+  if (member === me.id) return { error: "You can't remove yourself", status: 400 };
+  const m = await getMember(store, member);
+  if (!m) return { error: "not found", status: 404 };
+  await store.delete("mem-" + m.id);
+  const idx = (await allMembers(store)).filter((x) => x.id !== m.id);
+  await store.setJSON("members", idx);
+  return { ok: true };
+}
+export async function listMembers(store, me) {
+  if (!isAdmin(me)) return { error: "Only a club admin can see everyone", status: 403 };
+  return { members: (await loadAll(store)).map(pub).sort((a, b) => a.name.localeCompare(b.name)) };
+}
+// Parents add or remove their own players on teams they've joined (siblings on the same team).
+export async function myKid(store, me, { team, player }, on) {
+  if (!okId(team) || !(me.teams || []).includes(team)) return { error: "Join that team first with its invite link", status: 403 };
+  const p = (await teamPlayers(store, team)).find((x) => x.id === player);
+  if (!p) return { error: "No such player", status: 404 };
+  me.kids = (me.kids || []).filter((k) => !(k.team === team && k.player === player));
+  if (on) me.kids.push({ team, player, name: p.name });
+  await saveMember(store, me);
+  return { member: pub(me) };
+}

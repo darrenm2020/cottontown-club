@@ -3,7 +3,8 @@
   "private": true,
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",
-    "@netlify/blobs": "8.1.0"
+    "@netlify/blobs": "8.1.0",
+    "web-push": "^3.6.7"
   },
   "scripts": {
     "test": "node --import ./tests/register.mjs --test tests/*.test.mjs"

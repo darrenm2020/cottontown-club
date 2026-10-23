@@ -48,6 +48,21 @@ export const HELP_DOC = `
 - Payment settings (Fees): each team manager and the club treasurer add their Venmo username and, optionally, their PayPal app's Client ID and Secret (from developer.paypal.com).
 - Sign out on this device: 💬 → Me.
 
+## Notifications and the Home Screen
+- 💬 → Me → "Notifications on this phone" → Turn on notifications. Then choose what you get: team chat and direct messages, club announcements, new fees and reminders, kickoff and final scores, cancelled practices and events. "Send a test" checks it works.
+- iPhone: notifications only work after adding the app to the Home Screen. In Safari tap Share (the square with the arrow), then Add to Home Screen, then Add. Open the app from the Home Screen icon and turn notifications on there.
+- Android and computers: tap Turn on notifications and allow them when asked.
+- "I'm not getting notifications": check they're on in 💬 → Me, that the phone's Settings allow notifications for the app, and (iPhone) that you opened it from the Home Screen icon. Turn them off and on again on that phone if needed.
+- Tapping a notification opens the right chat, fee or game.
+- Opening the app from the Home Screen takes a family with one team straight to that team.
+
+## People (coaches and admins: 💬 → People)
+- Pick a team. "Make invite link" gives a link to send families.
+- Players and their families: each player shows the parents linked to them. "+ Link parent" links someone on the team to that player (for example a second parent, or a family who joined but didn't pick their player). × unlinks.
+- Families on the team: shows who hasn't picked a player yet, and "Remove from team".
+- Club admins also see "Everyone in the club": change someone's role (Parent, Coach, Club admin) or remove them (signs them out everywhere). Admins can link a parent from another team (siblings on two teams).
+- Parents: 💬 → Me → My players shows your players and lets you add a sibling on the same team. For a player on another team, use that team's invite link.
+
 ## Common fixes
 - "The score or clock is wrong": coaches use Adjust for the clock, + Goal / − for goals, or Setup → Fix a problem to restore an earlier version. A locked official result can only be changed with the main code.
 - "A game or player disappeared": Setup → Fix a problem → restore the team setup from before it happened.

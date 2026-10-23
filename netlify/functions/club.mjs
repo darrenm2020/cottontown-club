@@ -1,7 +1,8 @@
 import { getStore } from "@netlify/blobs";
-import { whoami, joinWithCode, joinWithInvite, createInvite, readInvite, pub, saveMember, allMembers, cleanName } from "../lib/members.mjs";
+import { whoami, joinWithCode, joinWithInvite, createInvite, readInvite, pub, saveMember, allMembers, cleanName, roster, link, removeFromTeam, setRole, removeMember, listMembers, myKid } from "../lib/members.mjs";
 import * as M from "../lib/messages.mjs";
 import * as F from "../lib/fees.mjs";
+import * as P from "../lib/push.mjs";
 
 // Club members, messages and fees.
 // GET  /api/club?invite=CODE           -> team and players for a parent's join link (no sign-in)
@@ -27,6 +28,9 @@ export async function handle(req, deps = {}) {
     if (!me) return json({ error: "Join the club first" }, 401);
     if (q("me")) { const ib = await M.inbox(store, me, await teamNames(store)); return json({ me: pub(me), unread: ib.filter((x) => x.unread).length }); }
     if (q("inbox")) return json({ channels: await M.inbox(store, me, await teamNames(store)) });
+    if (q("roster")) return out(await roster(store, me, q("roster")));
+    if (q("members")) return out(await listMembers(store, me));
+    if (q("push")) { const v = await P.vapid(store); return json({ publicKey: v.publicKey, ...(await P.getPrefs(store, me)) }); }
     if (q("ch")) return out(await M.list(store, me, q("ch"), q("since") || ""));
     if (q("people")) {
       const all = await allMembers(store);
@@ -57,11 +61,40 @@ export async function handle(req, deps = {}) {
   switch (k) {
     case "profile": { const n = cleanName(b.name); if (n) me.name = n; await saveMember(store, me); return json({ ok: true, me: pub(me) }); }
     case "invite": return out(await createInvite(store, me, b.team));
-    case "send": return out(await M.send(store, me, b.ch, b.text));
+    case "link": return out(await link(store, me, b, true));
+    case "unlink": return out(await link(store, me, b, false));
+    case "offteam": return out(await removeFromTeam(store, me, b));
+    case "role": return out(await setRole(store, me, b));
+    case "remove": return out(await removeMember(store, me, b));
+    case "addkid": return out(await myKid(store, me, b, true));
+    case "dropkid": return out(await myKid(store, me, b, false));
+    case "send": {
+      const c = M.parseCh(b.ch); const names = c && c.type === "team" ? await teamNames(store) : {};
+      return out(await M.send(store, me, b.ch, b.text, { origin: url.origin, teamName: c && c.type === "team" ? names[c.team] : "" }));
+    }
     case "del": return out(await M.remove(store, me, b.ch, b.id));
     case "pin": return out(await M.pin(store, me, b.ch, b.text));
     case "read": { if (!(await M.canRead(store, me, b.ch))) return json({ error: "no" }, 403); me.read = me.read || {}; me.read[b.ch] = Math.min(Date.now(), Number(b.at) || Date.now()); await store.setJSON("mem-" + me.id, me); return json({ ok: true }); }
-    case "fee": return out(await F.createFee(store, me, b));
+    case "fee": {
+      const r = await F.createFee(store, me, b);
+      if (r.fee) {
+        // Let the parents of everyone who owes it know.
+        try {
+          const names = await teamNames(store);
+          const who = await F.owers(store, r.fee, Object.keys(names));
+          const keys = new Set(who.map((o) => o.team + "." + o.player));
+          const parents = (await Promise.all((await allMembers(store)).filter((m) => m.role === "parent").map((m) => store.get("mem-" + m.id, { type: "json" }))))
+            .filter((m) => m && (m.kids || []).some((k) => keys.has(k.team + "." + k.player)));
+          const t = r.fee.scope.team;
+          await P.notify(store, parents.map((m) => m.id), "fees", { title: "New fee: " + r.fee.title, body: `$${(r.fee.amount / 100).toFixed(2)}${r.fee.due ? ", due " + r.fee.due : ""}. Tap to pay.`, tag: "fee-" + r.fee.id, url: (t ? "/?team=" + encodeURIComponent(t) + "&" : "/?") + "fees=1" }, url.origin);
+        } catch (e) { /* the fee is saved either way */ }
+      }
+      return out(r);
+    }
+    case "pushsub": return out(await P.saveSub(store, me, b.sub, b.prefs));
+    case "pushprefs": return out(await P.setPrefs(store, me, b.prefs));
+    case "pushoff": return out(await P.removeSub(store, me, String(b.endpoint || "")));
+    case "pushtest": { const r = await P.notify(store, [me.id], "msg", { title: "Notifications are on", body: "You'll get team messages, fees and game alerts here.", tag: "test", url: "/" }, url.origin); return json({ ok: true, ...r }); }
     case "feearchive": {
       const fee = await store.get("fee-" + b.fee, { type: "json" });
       if (!fee || !F.canManage(me, fee)) return json({ error: "not allowed" }, 403);
@@ -80,7 +113,7 @@ export async function handle(req, deps = {}) {
         const kids = owing.filter((v) => (p.kids || []).some((k) => k.team === v.team && k.player === v.player));
         if (!kids.length || !M.canDM(me, p)) continue;
         const amt = kids.map((v) => `${v.name}: $${((v.owed - v.paid) / 100).toFixed(2)}`).join(", ");
-        const r = await M.send(store, me, M.dmId(me.id, p.id), `Friendly reminder: ${fee.title} is due${fee.due ? " " + fee.due : ""}. ${amt}. You can pay in the app under Fees. Thank you!`);
+        const r = await M.send(store, me, M.dmId(me.id, p.id), `Friendly reminder: ${fee.title} is due${fee.due ? " " + fee.due : ""}. ${amt}. You can pay in the app under Fees. Thank you!`, { origin: url.origin });
         if (!r.error) sent++;
       }
       return json({ ok: true, sent, owing: owing.length });

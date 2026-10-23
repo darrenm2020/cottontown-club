@@ -1,4 +1,5 @@
 import { okId, newId, isAdmin, isCoachOf, inTeam, getMember } from "./members.mjs";
+import { notify, teamMemberIds } from "./push.mjs";
 
 // Message channels: "club" (announcements, admins post), "coaches", "t.TEAM" (a team's families and coaches),
 // and "dm.A.B" (two members, ids sorted). Each message is its own blob, so two people posting at once
@@ -43,7 +44,7 @@ export async function canPost(store, me, ch) {
 }
 
 const pad = (n) => n.toString(36).padStart(9, "0");
-export async function send(store, me, ch, text) {
+export async function send(store, me, ch, text, opts = {}) {
   text = String(text || "").replace(/\r/g, "").trim().slice(0, 2000);
   if (!text) return { error: "Empty message", status: 400 };
   if (!(await canPost(store, me, ch))) return { error: "You can't post here", status: 403 };
@@ -56,7 +57,20 @@ export async function send(store, me, ch, text) {
     const k = "dmidx-" + id; const idx = (await store.get(k, { type: "json" })) || [];
     if (!idx.includes(ch)) { idx.push(ch); await store.setJSON(k, idx); }
   }
+  await pushFor(store, me, c, ch, text, opts);
   return { message: msg };
+}
+// Tell everyone who reads this channel (except the sender), if they turned notifications on.
+async function pushFor(store, me, c, ch, text, { origin, teamName } = {}) {
+  try {
+    const idx = (await store.get("members", { type: "json" })) || [];
+    let ids, kind = "msg", title = me.name, url = "/?msg=" + encodeURIComponent(ch);
+    if (c.type === "club") { ids = idx.map((m) => m.id); kind = "news"; title = "Club announcement"; }
+    else if (c.type === "coaches") { ids = idx.filter((m) => m.role !== "parent").map((m) => m.id); title = me.name + " · Coaches"; }
+    else if (c.type === "team") { ids = await teamMemberIds(store, c.team); title = me.name + " · " + (teamName || "Team chat"); url = "/?team=" + encodeURIComponent(c.team) + "&msg=" + encodeURIComponent(ch); }
+    else ids = [me.id === c.a ? c.b : c.a];
+    await notify(store, ids.filter((id) => id !== me.id), kind, { title, body: text.slice(0, 160), tag: ch, url }, origin);
+  } catch (e) { /* a notification failing never stops the message */ }
 }
 export async function list(store, me, ch, since) {
   if (!(await canRead(store, me, ch))) return { error: "You can't read this", status: 403 };

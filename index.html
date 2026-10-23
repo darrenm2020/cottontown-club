@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<meta name="theme-color" content="#9d0208">
+<meta name="apple-mobile-web-app-title" content="Cottontown">
 <title>Game tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -351,6 +356,10 @@ b.btitle{border:0;padding:0}.bfield button{min-height:36px;padding:0 10px;font-s
 .bai .btn{align-self:flex-start}
 .tdone{opacity:.55}.histlist{margin-top:8px}
 .hubg b{position:relative}.hubg .hubdot{top:-8px;right:-14px}
+.steps{margin:6px 0 0 18px;padding:0;line-height:1.6}.prow{border-top:1px solid var(--line);padding:8px 0}.ppname b{font:700 17px "Barlow Condensed",sans-serif}
+.pchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px}.chip2{display:inline-flex;align-items:center;gap:4px;background:var(--surface-2);border:1px solid var(--line);border-radius:16px;padding:2px 4px 2px 10px;font-size:14px}
+.chip2 button{border:0;background:none;font-size:16px;line-height:1;cursor:pointer;color:var(--muted);padding:2px 6px}.pick{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.pick small{color:var(--muted);font-weight:500}
+.warnt{color:#b45309;font-weight:600}#hub-pteam{min-height:38px;border:1.5px solid var(--line);border-radius:9px;padding:0 8px;background:var(--surface);color:var(--ink);font:600 15px "Barlow",sans-serif;max-width:55%}
 .hubbtn{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;width:58px;height:58px;border-radius:50%;border:0;background:var(--crimson);color:#fff;font-size:26px;box-shadow:0 6px 18px rgba(0,0,0,.25);cursor:pointer}
 .hubdot{position:absolute;top:-2px;right:-2px;min-width:22px;height:22px;border-radius:11px;background:#ffd34d;color:#111;font:700 13px/22px "Barlow",sans-serif;padding:0 5px}
 .hub{position:fixed;inset:0;z-index:60;background:var(--bg,var(--surface-2));display:flex;flex-direction:column}.hub[hidden]{display:none}
@@ -1307,7 +1316,7 @@ function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').rep
 const PUB_VER='2026-10-23a';
 /* APP_VER changes with every deploy that coach devices should pick up. When the published page's APP_VER
    differs from the running one, a coach device reloads itself if no clock is running, or shows a Refresh button. */
-const APP_VER='2026-10-24e';
+const APP_VER='2026-10-24f';
 const VER={tag:null,ready:false};
 async function checkVersion(){
   if(!SY.on||!canEdit()||document.visibilityState!=='visible')return;
@@ -2778,9 +2787,9 @@ function renderHubBtn(){let b=$$h('hubbtn');if(!b){b=document.createElement('but
   const mini=$$h('hubmini');if(mini)mini.querySelector('b').innerHTML=badge;}
 function renderHub(){let el=$$h('hub');if(!el){el=document.createElement('div');el.id='hub';el.className='hub';document.body.appendChild(el);}
   el.hidden=!H.open;renderHubBtn();if(!H.open)return;
-  const me=myMem();let h=`<div class="hubtop"><b>${esc(clubName())}</b><div class="seg hubtabs">${(me?[['msgs','Messages'+(H.unread?' ('+H.unread+')':'')],['fees','Fees'],['me','Me'],['help','Help']]:[['join','Join'],['help','Help']]).map(([t,l])=>`<button data-hact="tab" data-t="${t}" aria-pressed="${H.tab===t||(!me&&t==='join'&&H.tab!=='help')}">${l}</button>`).join('')}</div><button class="hubx" data-hact="close" aria-label="Close">✕</button></div>`;
+  const me=myMem();let h=`<div class="hubtop"><b>${esc(clubName())}</b><div class="seg hubtabs">${(me?[['msgs','Messages'+(H.unread?' ('+H.unread+')':'')],['fees','Fees'],...(me.role!=='parent'?[['people','People']]:[]),['me','Me'],['help','Help']]:[['join','Join'],['help','Help']]).map(([t,l])=>`<button data-hact="tab" data-t="${t}" aria-pressed="${H.tab===t||(!me&&t==='join'&&H.tab!=='help')}">${l}</button>`).join('')}</div><button class="hubx" data-hact="close" aria-label="Close">✕</button></div>`;
   if(H.msg)h+=`<div class="hubmsg">${esc(H.msg)}</div>`;
-  h+=`<div class="hubbody">${H.tab==='help'?hubHelpHTML():!me?hubJoinHTML():H.tab==='fees'?hubFeesHTML():H.tab==='me'?hubMeHTML():H.ch?hubChHTML():hubInboxHTML()}</div>`;
+  h+=`<div class="hubbody">${H.tab==='help'?hubHelpHTML():!me?hubJoinHTML():H.tab==='fees'?hubFeesHTML():H.tab==='people'?peopleHTML():H.tab==='me'?hubMeHTML():H.ch?hubChHTML():hubInboxHTML()}</div>`;
   const ta=$$h('hub-text');const keep=ta?ta.value:null;const ae=document.activeElement&&document.activeElement.id;
   el.innerHTML=h;
   if(keep!=null&&$$h('hub-text'))$$h('hub-text').value=keep;if(ae&&$$h(ae)&&/^hub-/.test(ae))$$h(ae).focus();
@@ -2797,6 +2806,75 @@ function hubJoinHTML(){
     h+=`<h3>Messages and fees</h3>`+(coach?`<p class="fine">Join as a coach of ${esc((CFG()&&CFG().name)||'this team')} with the coach code on this device.</p><label class="fld">Your name<input id="hub-name" placeholder="e.g. Coach Darren" autocomplete="name"></label><button class="btn primary-s" data-hact="joincoach">Join as coach</button>`
       :`<p>Parents: open the invite link from your coach to join your team. Coaches: open your team and unlock it with your coach code first.</p>`);}
   return h+'</div>';}
+/* ---------- Notifications on this device (web push) ---------- */
+const PUSHK=[['msg','Team chat and direct messages'],['news','Club announcements'],['fees','New fees and reminders'],['games','Kickoff and final scores'],['sched','Cancelled practices and events']];
+const isIOS=()=>/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const standalone=()=>window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+function pushState(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))return isIOS()&&!standalone()?'ios-home':'unsupported';
+  if(Notification.permission==='denied')return 'blocked';
+  return H.pushOn?'on':'off';}
+const b64u=s=>{const p='='.repeat((4-s.length%4)%4);const r=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...r].map(c=>c.charCodeAt(0)));};
+async function swReg(){return navigator.serviceWorker.register('/sw.js',{scope:'/'});}
+async function pushLoad(){if(!memTok()||!('serviceWorker' in navigator))return;
+  const j=await hubApi('GET','?push=1');if(j.error)return;H.pushKey=j.publicKey;H.pushPrefs=j.prefs;
+  try{const reg=await navigator.serviceWorker.getRegistration('/');const s=reg&&await reg.pushManager.getSubscription();H.pushOn=!!s&&Notification.permission==='granted';}catch(e){H.pushOn=false;}
+  renderHub();}
+async function pushOn(){
+  try{if(!H.pushKey)await pushLoad();
+    const perm=await Notification.requestPermission();if(perm!=='granted'){hubSay(perm==='denied'?'Notifications are blocked. Turn them on in your phone’s Settings for this app.':'No problem. You can turn them on any time.');renderHub();return;}
+    const reg=await swReg();await navigator.serviceWorker.ready;
+    let s=await reg.pushManager.getSubscription();if(!s)s=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(H.pushKey)});
+    const j=await hubApi('POST','',{kind:'pushsub',sub:s.toJSON(),prefs:H.pushPrefs||{}});if(j.error){hubSay(j.error);return;}
+    H.pushOn=true;H.pushPrefs=j.prefs;hubSay('Notifications are on for this phone');}
+  catch(e){hubSay('Couldn’t turn on notifications on this device');}
+  renderHub();}
+async function pushOff(){try{const reg=await navigator.serviceWorker.getRegistration('/');const s=reg&&await reg.pushManager.getSubscription();
+  if(s){await hubApi('POST','',{kind:'pushoff',endpoint:s.endpoint});await s.unsubscribe();}}catch(e){}H.pushOn=false;hubSay('Notifications are off for this phone');renderHub();}
+function pushHTML(){const st=pushState();let h=`<div class="card"><h3>Notifications on this phone</h3>`;
+  if(st==='ios-home')h+=`<p>On iPhone, add the app to your Home Screen first:</p><ol class="steps"><li>Tap the <b>Share</b> button <span aria-hidden="true">(□↑)</span> at the bottom of Safari.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open the app from your Home Screen, then come back here and turn notifications on.</li></ol>`;
+  else if(st==='unsupported')h+=`<p class="fine">This browser can’t show notifications. Try Safari on iPhone (from the Home Screen) or Chrome on Android.</p>`;
+  else if(st==='blocked')h+=`<p class="fine">Notifications are blocked for this app. Turn them on in your phone’s Settings → Notifications, then come back.</p>`;
+  else if(st==='off')h+=`<p class="fine">Get a buzz for team messages, new fees, kickoff and final scores, and cancelled practices.</p><button class="btn primary-s" data-hact="pushon">Turn on notifications</button>`;
+  else{h+=`<p class="fine">On for this phone. Choose what you get:</p>${PUSHK.map(([k,l])=>`<div class="set"><span>${l}</span><button class="tog ${(H.pushPrefs||{})[k]!==false?'on':''}" data-hact="pushk" data-k="${k}" aria-pressed="${(H.pushPrefs||{})[k]!==false}">${(H.pushPrefs||{})[k]!==false?'On':'Off'}</button></div>`).join('')}
+    <div class="calbtns"><button class="btn small" data-hact="pushtest">Send a test</button><button class="btn small" data-hact="pushoff">Turn off on this phone</button></div>`;}
+  return h+'</div>';}
+
+/* ---------- People: link parents to teams and players (coaches and admins) ---------- */
+const teamNameOf=id=>{const t=((CLUB.data&&CLUB.data.teams)||[]).find(x=>x.id===id);return (t&&(t.short||t.name))||(S.T&&S.T[id]&&S.T[id].cfg&&(S.T[id].cfg.short||S.T[id].cfg.name))||id;};
+async function peopleLoad(team){H.pTeam=team;H.roster=null;renderHub();const j=await hubApi('GET','?roster='+encodeURIComponent(team));H.roster=j.error?{error:j.error}:j;renderHub();}
+function peopleHTML(){const me=myMem();const teams=me.role==='admin'?[...new Set((me.teams||[]).concat(((CLUB.data&&CLUB.data.teams)||[]).map(t=>t.id)).concat(Object.keys(S.T||{}).filter(id=>S.T[id].cfg)))]:(me.teams||[]);
+  if(!H.pTeam&&teams.length){H.pTeam=(S.team&&teams.includes(S.team))?S.team:teams[0];setTimeout(()=>peopleLoad(H.pTeam),0);}
+  let h=`<div class="hubbar"><b>People</b><select id="hub-pteam" data-hchg="pteam">${teams.map(t=>`<option value="${esc(t)}" ${t===H.pTeam?'selected':''}>${esc(teamNameOf(t))}</option>`).join('')}</select></div>`;
+  const r=H.roster;if(!r)return h+'<p class="muted">Loading…</p>';if(r.error)return h+`<p class="muted">${esc(r.error)}</p>`;
+  h+=`<div class="card"><div class="hubbar"><b>Invite families</b>${H.inv&&H.inv[H.pTeam]?`<button class="btn small" data-copy="${esc(H.inv[H.pTeam])}">Copy link</button>`:`<button class="btn small primary-s" data-hact="invite" data-t="${esc(H.pTeam)}">Make invite link</button>`}</div>${H.inv&&H.inv[H.pTeam]?`<div class="fine invlink">${esc(H.inv[H.pTeam])}</div>`:'<p class="fine">Parents tap the link, enter their name and pick their player. You can fix links below.</p>'}</div>`;
+  h+=`<div class="card"><h3>Players and their families</h3>`;
+  r.players.forEach(p=>{const picking=H.linkFor===p.id;
+    h+=`<div class="prow"><div class="ppname"><b>${esc(p.name)}</b>${p.num?` <span class="muted">#${esc(p.num)}</span>`:''}${p.guest?' <span class="pill">Guest</span>':''}</div>
+      <div class="pchips">${p.parents.map(x=>`<span class="chip2">${esc(x.name)}<button data-hact="unlink" data-m="${x.id}" data-p="${p.id}" aria-label="Unlink ${esc(x.name)}">×</button></span>`).join('')}${p.parents.length?'':'<span class="muted fine">No family linked</span>'}
+      <button class="linkb" data-hact="linkpick" data-p="${p.id}">${picking?'Cancel':'+ Link parent'}</button></div>`;
+    if(picking){const cands=r.pickable.filter(m=>!p.parents.some(x=>x.id===m.id));
+      h+=`<div class="pick">${cands.length?cands.map(m=>`<button class="btn small" data-hact="link" data-m="${m.id}" data-p="${p.id}">${esc(m.name)}<small> · ${esc(roleName[m.role])}${m.teams.length&&!m.teams.includes(H.pTeam)?' · '+esc(m.teams.map(teamNameOf).join(', ')):''}</small></button>`).join(''):'<span class="fine">Everyone on the team is linked. Send the invite link to add a family.</span>'}</div>`;}
+    h+=`</div>`;});
+  h+=`</div>`;
+  const un=r.families.filter(f=>!f.kids.length);
+  h+=`<div class="card"><h3>Families on the team</h3>${r.families.length?r.families.map(f=>`<div class="srow"><div class="sinfo"><b>${esc(f.name)}</b><div class="fine">${f.kids.length?esc(f.kids.join(', ')):'<span class="warnt">Not linked to a player yet</span>'}</div></div><button class="btn small ${armed('off'+f.id)?'danger-s armed':''}" data-hact="offteam" data-m="${f.id}">${armed('off'+f.id)?'Tap again':'Remove from team'}</button></div>`).join(''):'<p class="muted">No families yet. Send the invite link.</p>'}${un.length?`<p class="fine">${un.length} famil${un.length===1?'y hasn’t':'ies haven’t'} picked a player. Use “+ Link parent” above.</p>`:''}</div>`;
+  h+=`<div class="card"><h3>Coaches</h3>${r.coaches.map(c=>`<div class="srow"><div class="sinfo"><b>${esc(c.name)}</b><div class="fine">${esc(roleName[c.role])}</div></div></div>`).join('')||'<p class="muted">None yet.</p>'}<p class="fine">Coaches join with the team’s coach code (💬 → Join as coach).</p></div>`;
+  if(me.role==='admin'){h+=`<div class="card"><div class="hubbar"><b>Everyone in the club</b><button class="btn small" data-hact="allmem">${H.allMem?'Refresh':'Show'}</button></div>`;
+    if(H.allMem)h+=H.allMem.map(m=>`<div class="srow"><div class="sinfo"><b>${esc(m.name)}</b><div class="fine">${esc(m.teams.map(teamNameOf).join(', ')||'No team')}${m.kids.length?' · '+esc(m.kids.map(k=>k.name).join(', ')):''}</div></div>
+      <select data-hchg="role" data-m="${m.id}" ${m.id===me.id?'disabled':''}>${['parent','coach','admin'].map(r2=>`<option value="${r2}" ${m.role===r2?'selected':''}>${roleName[r2]}</option>`).join('')}</select>
+      ${m.id===me.id?'':`<button class="btn small ${armed('rm'+m.id)?'danger-s armed':''}" data-hact="rmmem" data-m="${m.id}">${armed('rm'+m.id)?'Tap again':'Remove'}</button>`}</div>`).join('');
+    h+=`<p class="fine">Making someone a coach adds them to the team picked above. Removing someone signs them out everywhere.</p></div>`;}
+  return h;}
+// Parents: their players, and adding a sibling on a team they've joined.
+async function myPlayersLoad(){const me=myMem();H.myRosters={};for(const t of me.teams||[]){try{const r=await fetch(API+'?team='+encodeURIComponent(t),{cache:'no-store'});const j=await r.json();H.myRosters[t]=((j.config&&j.config.team&&j.config.team.players)||[]).filter(p=>!p.guest).map(p=>({id:p.id,name:p.name}));}catch(e){}}renderHub();}
+function myPlayersHTML(){const me=myMem();if(me.role!=='parent'&&!(me.kids||[]).length)return '';
+  if(!H.myRosters){setTimeout(myPlayersLoad,0);H.myRosters={};}
+  let h=`<div class="card"><h3>My players</h3>`;
+  (me.teams||[]).forEach(t=>{const mine=(me.kids||[]).filter(k=>k.team===t);const all=H.myRosters[t]||[];
+    h+=`<div class="sday">${esc(teamNameOf(t))}</div>${mine.map(k=>`<div class="srow"><div class="sinfo"><b>${esc(k.name)}</b></div><button class="btn small" data-hact="dropkid" data-t="${t}" data-p="${k.player}">Remove</button></div>`).join('')||'<p class="fine">No player picked yet.</p>'}
+      ${all.filter(p=>!mine.some(k=>k.player===p.id)).length?`<details><summary class="fine">Add another player on this team</summary><div class="pick">${all.filter(p=>!mine.some(k=>k.player===p.id)).map(p=>`<button class="btn small" data-hact="addkid" data-t="${t}" data-p="${p.id}">${esc(p.name)}</button>`).join('')}</div></details>`:''}`;});
+  return h+`<p class="fine">Player on another team? Ask that team’s coach for its invite link.</p></div>`;}
 /* Help desk: the AI answers from the app's guide; anything it can't fix goes to the club admins. */
 const helpCtx=()=>{const me=myMem();const team=new URLSearchParams(location.search).get('team');
   return {role:me?me.role:(team&&S.auth&&S.auth[team]?'coach':team?'parent':'visitor'),page:team?'team':'club',team:team&&CFG()?CFG().name:'',tab:team?S.tab:'',ver:APP_VER};};
@@ -2877,6 +2955,7 @@ function hubPayeesHTML(){const me=myMem();const list=(me.role==='admin'?['club']
 function hubMeHTML(){const me=myMem();
   let h=`<div class="card"><h3>${esc(me.name)}</h3><p class="fine">${esc(roleName[me.role])}${me.kids.length?' · '+esc(me.kids.map(k=>k.name).join(', ')):''}</p>
     <label class="fld">Your name<input id="hub-myname" value="${esc(me.name)}"></label><button class="btn small" data-hact="rename">Save name</button></div>`;
+  h+=pushHTML();h+=myPlayersHTML();
   if(me.role!=='parent'){h+=`<div class="card"><h3>Invite parents</h3><p class="fine">Send this link to your team’s parents (text, email or TeamReach). They tap it, enter their name and pick their player.</p>
     ${(me.teams||[]).map(t=>`<div class="srow"><div class="sinfo"><b>${esc(t)}</b>${H.inv&&H.inv[t]?`<div class="fine invlink">${esc(H.inv[t])}</div>`:''}</div>${H.inv&&H.inv[t]?`<button class="btn small" data-copy="${esc(H.inv[t])}">Copy link</button>`:`<button class="btn small primary-s" data-hact="invite" data-t="${t}">Make link</button>`}</div>`).join('')}</div>`;}
   h+=`<div class="card"><button class="btn small danger-s ${H.armOut?'armed':''}" data-hact="signout">${H.armOut?'Tap again to sign out on this device':'Sign out on this device'}</button></div>`;
@@ -2894,6 +2973,8 @@ function hubPayPal(){document.querySelectorAll('.ppbox:empty').forEach(box=>{con
   s.onload=()=>{PPL[cid]='ok';go();(PPL.wait||[]).forEach(f=>f());PPL.wait=[];};document.head.appendChild(s);});}
 const _renderHub=renderHub;renderHub=function(){_renderHub();if(H.open&&H.tab==='fees')setTimeout(hubPayPal,0);};
 document.addEventListener('change',async e=>{const el=e.target.closest('[data-hchg]');if(!el)return;const d=el.dataset;
+  if(d.hchg==='pteam'){peopleLoad(el.value);return;}
+  if(d.hchg==='role'){const j=await hubApi('POST','',{kind:'role',member:d.m,role:el.value,team:H.pTeam});hubSay(j.error||'Role updated');hubAct('allmem',{});return;}
   const body={kind:'pay',fee:d.fee,team:d.team,player:d.player};if(d.hchg==='status')body.status=el.value;else body.sch=el.value||0;
   const j=await hubApi('POST','',body);if(j.error)hubSay(j.error);hubLoadFees();});
 document.addEventListener('keydown',e=>{if(e.target&&e.target.id==='hub-text'&&e.key==='Enter'&&!e.shiftKey&&window.matchMedia('(pointer:fine)').matches){e.preventDefault();hubAct('send',{});}});
@@ -2902,11 +2983,21 @@ async function hubAct(a,d){const me=myMem();const v=id=>(($$h(id)||{}).value||''
   switch(a){
     case 'open':hubOpen();break;
     case 'helpask':helpAsk();break;
+    case 'pushon':pushOn();break;
+    case 'pushoff':pushOff();break;
+    case 'pushtest':{const j=await hubApi('POST','',{kind:'pushtest'});hubSay(j.error||(j.sent?'Test sent. It should pop up in a moment.':'No device got it. Turn notifications off and on again.'));break;}
+    case 'pushk':{const p=Object.assign({},H.pushPrefs||{});p[d.k]=p[d.k]===false;const j=await hubApi('POST','',{kind:'pushprefs',prefs:p});if(!j.error)H.pushPrefs=j.prefs;renderHub();break;}
+    case 'linkpick':H.linkFor=H.linkFor===d.p?null:d.p;renderHub();break;
+    case 'link':case 'unlink':{const j=await hubApi('POST','',{kind:a,member:d.m,team:H.pTeam,player:d.p});if(j.error)hubSay(j.error);H.linkFor=null;peopleLoad(H.pTeam);break;}
+    case 'offteam':if(H['arm-off'+d.m]){const j=await hubApi('POST','',{kind:'offteam',member:d.m,team:H.pTeam});if(j.error)hubSay(j.error);H['arm-off'+d.m]=0;peopleLoad(H.pTeam);}else{UI.arm={k:'off'+d.m,t:Date.now()};H['arm-off'+d.m]=1;renderHub();setTimeout(()=>{H['arm-off'+d.m]=0;},4000);}break;
+    case 'allmem':{const j=await hubApi('GET','?members=1');H.allMem=j.members||[];if(j.error)hubSay(j.error);renderHub();break;}
+    case 'rmmem':if(H['arm-rm'+d.m]){const j=await hubApi('POST','',{kind:'remove',member:d.m});hubSay(j.error||'Removed');H['arm-rm'+d.m]=0;hubAct('allmem',{});}else{UI.arm={k:'rm'+d.m,t:Date.now()};H['arm-rm'+d.m]=1;renderHub();setTimeout(()=>{H['arm-rm'+d.m]=0;},4000);}break;
+    case 'addkid':case 'dropkid':{const j=await hubApi('POST','',{kind:a,team:d.t,player:d.p});if(j.error)hubSay(j.error);else{S.mem.me=j.member;saveLocal();}renderHub();break;}
     case 'tkopen':{const th=H.help||[];H.tk={text:th.length?th[th.length-1].q:''};renderHub();break;}
     case 'tkcancel':H.tk=null;renderHub();break;
     case 'tksend':helpTicket();break;
     case 'close':H.open=false;H.ch=null;renderHub();break;
-    case 'tab':H.tab=d.t==='join'?'msgs':d.t;H.ch=null;H.picking=false;renderHub();if(d.t==='fees')hubLoadFees();if(d.t==='msgs')hubRefresh(true);break;
+    case 'tab':H.tab=d.t==='join'?'msgs':d.t;H.ch=null;H.picking=false;if(d.t==='people'&&H.pTeam)peopleLoad(H.pTeam);if(d.t==='me'){H.myRosters=null;hubRefresh(false);}renderHub();if(d.t==='fees')hubLoadFees();if(d.t==='msgs')hubRefresh(true);break;
     case 'kid':{const k=H.kids||[];H.kids=k.includes(d.id)?k.filter(x=>x!==d.id):k.concat(d.id);const n=v('hub-name');renderHub();if($$h('hub-name'))$$h('hub-name').value=n;break;}
     case 'joininv':{const name=v('hub-name');if(!name){hubSay('Add your name');break;}if(!(H.kids||[]).length){hubSay('Tap your player');break;}
       const j=await hubApi('POST','',{kind:'join',invite:H.join.code,name,kids:H.kids});if(j.error){hubSay(j.error);break;}
@@ -2948,6 +3039,11 @@ async function hubInit(){
   renderHubBtn();if(!hubLive())return;
   const q=new URLSearchParams(location.search);const code=q.get('join');
   if(code){const j=await hubApi('GET','?invite='+encodeURIComponent(code));H.join=j.error?{error:j.error}:Object.assign(j,{code});if(memTok()&&!j.error){/* already joined: add this team */}H.open=true;renderHub();}
+  // Taps on notifications open the right place: ?msg=CHANNEL or ?fees=1.
+  if(memTok()){const m=q.get('msg');if(m){H.open=true;H.tab='msgs';renderHub();await hubRefresh(true);hubAct('ch',{ch:m});}
+    else if(q.get('fees')){H.open=true;H.tab='fees';renderHub();hubLoadFees();}
+    pushLoad();
+    if('serviceWorker' in navigator&&H.pushOn===undefined)navigator.serviceWorker.getRegistration('/').then(r=>{if(r)r.update().catch(()=>{});}).catch(()=>{});}
   hubRefresh(false);
   setInterval(()=>{if(document.hidden||!memTok())return;H.poll++;if(H.open&&H.ch)hubRefresh(false);else if(H.open?H.poll%3===0:H.poll%12===0)hubRefresh(H.open);},5000);
 }
@@ -2984,6 +3080,8 @@ function init(){
   S=load();if(!S.dv){S.dv=uid('d');saveLocal();}
   const QP=new URLSearchParams(location.search);
   setTimeout(hubInit,600);
+  // Opened from the Home Screen: a family with one team goes straight to it.
+  if(QP.get('home')&&!QP.has('team')&&S.mem&&S.mem.me&&(S.mem.me.teams||[]).length===1){location.replace(location.pathname+'?team='+encodeURIComponent(S.mem.me.teams[0]));return;}
   if(QP.has('club')||!QP.has('team')){clubInit();return;}
   const qp=new URLSearchParams(location.search).get('team');
   if(qp&&/^[a-z0-9-]{1,40}$/.test(qp)){S.team=qp;if(!S.T[qp])S.T[qp]={cfg:null,games:{}};}

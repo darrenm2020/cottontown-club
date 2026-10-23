@@ -1,4 +1,5 @@
 import { getStore } from "@netlify/blobs";
+import { notify, teamMemberIds } from "../lib/push.mjs";
 import { snapshot, listHistory, getSnapshot, gameSummary, gameLosesData, cfgSummary, cfgLosesData, restoreGame } from "../lib/history.mjs";
 
 // Shared state for the game tracker (multiple teams).
@@ -65,6 +66,41 @@ function applyLock(sum, lock) {
   return Object.assign(sum, { started: true, running: false, fullDone: true, us: lock.us, them: lock.them, pk: lock.pk || null, official: { src: lock.src, at: lock.at } });
 }
 
+// Push alerts for a team: kickoff, final score, official result, cancelled practices. Each one goes out once.
+const localWhen = (dt) => { const d = new Date(String(dt) + "Z"); return isNaN(d) ? "" : d.toLocaleString("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+async function gameAlert(store, team, gid, kind, game, lock, origin) {
+  try {
+    const key = "pushed-" + team + "-" + gid;
+    const done = (await store.get(key, { type: "json" })) || {};
+    const goals = (game && game.goals) || [];
+    const us = lock ? lock.us : goals.filter((x) => x.side === "us").length, them = lock ? lock.them : goals.filter((x) => x.side === "them").length;
+    if (kind === "official" && done.final && done.final === us + "-" + them) return; // same score already sent as the final
+    if (kind !== "official" && done[kind]) return;
+    done[kind] = kind === "kick" ? Date.now() : us + "-" + them;
+    if (kind === "official") done.final = done.official;
+    await store.setJSON(key, done);
+    const cfg = await store.get("team-" + team, { type: "json" });
+    const c = (cfg && cfg.team) || {};
+    const gc = (c.games || []).find((x) => x && x.id === gid) || {};
+    const name = c.short || c.name || "Our team", opp = gc.opp || gc.title || "the opponent";
+    const pk = lock && lock.pk ? ` (PKs ${lock.pk.us}–${lock.pk.them})` : game && game.pk ? "" : "";
+    const title = kind === "kick" ? `Kickoff: ${name} vs ${opp}` : kind === "final" ? `Final: ${name} ${us}–${them} ${opp}` : `Official result: ${name} ${us}–${them}${pk} ${opp}`;
+    const body = kind === "kick" ? "Follow the game live in the app." : kind === "final" ? "Tap for scorers and stats." : `Confirmed by ${lock.src}.`;
+    await notify(store, await teamMemberIds(store, team), "games", { title, body, tag: "game-" + team + "-" + gid, url: "/?team=" + encodeURIComponent(team) + "&game=" + encodeURIComponent(gid) }, origin);
+  } catch (e) { /* alerts never block a save */ }
+}
+async function scheduleAlert(store, team, oldCfg, newCfg, origin) {
+  try {
+    const was = new Map(((oldCfg && oldCfg.events) || []).map((e) => [e.id, e]));
+    const soon = new Date(Date.now() - 864e5).toISOString().slice(0, 16);
+    const cx = ((newCfg && newCfg.events) || []).filter((e) => e && e.cancelled && was.has(e.id) && !was.get(e.id).cancelled && String(e.start) >= soon);
+    if (!cx.length) return;
+    const name = newCfg.short || newCfg.name || "Team";
+    const what = (e) => (e.type === "practice" ? "Practice" : e.title || "Event") + " " + localWhen(e.start);
+    await notify(store, await teamMemberIds(store, team), "sched", { title: `${name}: ${cx.length === 1 ? "cancelled" : cx.length + " cancelled"}`, body: cx.slice(0, 3).map(what).join("; ") + (cx.length > 3 ? "…" : ""), tag: "sched-" + team, url: "/?team=" + encodeURIComponent(team) }, origin);
+  } catch (e) { /* alerts never block a save */ }
+}
+
 function summarize(g, pname) {
   const goals = Array.isArray(g.goals) ? g.goals : [];
   return {
@@ -127,6 +163,7 @@ export default async (req) => {
       if (!f) return json({ error: "bad request" }, 400);
       f.at = now; f.by = who;
       await store.setJSON(key, f);
+      await gameAlert(store, team, b.gid, "official", null, f, url.origin);
       // Stop a clock some phone may have left running.
       const gk = "game-" + team + "-" + b.gid;
       const gv = await store.get(gk, { type: "json" });
@@ -176,6 +213,7 @@ export default async (req) => {
         await snapshot(store, "hist-team-" + team, { at: now, rev: cur.rev, by: who, why: lose ? "before a save that removed items" : "", sum: cfgSummary(cur.team), team: cur.team }, { force: lose, minGapMs: 10 * 60000 });
       }
       await store.setJSON("team-" + team, { rev, team: b.config, at: now });
+      if (cur && cur.team) await scheduleAlert(store, team, cur.team, b.config, url.origin);
       const idx = (await store.get("teams", { type: "json" })) || [];
       const name = String(b.config.name || team).slice(0, 80);
       const i = idx.findIndex((t) => t.id === team);
@@ -197,6 +235,9 @@ export default async (req) => {
         await snapshot(store, "hist-game-" + team + "-" + b.gid, { at: now, rev: cur.rev, by: who, why: lose ? "before a save that removed data" : "", sum: gameSummary(cur.game), game: cur.game }, { force: lose, minGapMs: 3 * 60000 });
       }
       await store.setJSON(key, { rev, game: b.game, at: now });
+      const was = (cur && cur.game) || {};
+      if (!lock && b.game.started && !was.started && !b.game.imported) await gameAlert(store, team, b.gid, "kick", b.game, null, url.origin);
+      if (!lock && b.game.fullDone && !was.fullDone && was.started && !b.game.imported) await gameAlert(store, team, b.gid, "final", b.game, null, url.origin);
       return json({ ok: true, now, rev, locked: !!lock });
     }
 

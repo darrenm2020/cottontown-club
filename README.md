@@ -16,6 +16,7 @@ It's one page (`index.html`) plus Netlify Functions, deployed by Netlify from `m
 | `netlify/functions/help.mjs` | `/api/help`: the in-app help desk (answers from `netlify/lib/help-doc.mjs`) and help requests to admins. |
 | `netlify/functions/report.mjs` | `/api/report`: problem reports the app sends automatically (errors, failed saves). |
 | `netlify/functions/admin.mjs` | `/api/admin`: club admin tools (main code): help requests, problems, backups. |
+| `sw.js`, `manifest.webmanifest`, `icon-*.png` | Home Screen install and push notifications (`netlify/lib/push.mjs` sends them; keys are made automatically). |
 | `netlify/functions/backup-daily.mjs` | Runs nightly: copies all club data to the `cottontown-backups` store, kept 30 days. |
 | `netlify/lib/` | Shared server code: members, messages, fees, the committee. |
 | `tests/` | `npm test` runs the server tests; `tests/dev-server.mjs` runs the app locally. |

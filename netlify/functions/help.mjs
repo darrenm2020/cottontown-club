@@ -53,7 +53,7 @@ export async function handle(req, deps = {}) {
       const idx = await allMembers(store);
       for (const a of idx.filter((x) => x.role === "admin" && x.id !== me.id)) {
         const adm = await getMember(store, a.id);
-        const r = await M.send(store, me, M.dmId(me.id, a.id), `Help request: ${text}${ctx.team ? `\n(Team: ${ctx.team}, ${ctx.tab || ctx.page})` : ""}`);
+        const r = await M.send(store, me, M.dmId(me.id, a.id), `Help request: ${text}${ctx.team ? `\n(Team: ${ctx.team}, ${ctx.tab || ctx.page})` : ""}`, { origin: new URL(req.url).origin });
         if (!r.error && adm) messaged++;
       }
     }
