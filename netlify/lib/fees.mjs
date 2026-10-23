@@ -31,7 +31,7 @@ export async function owers(store, fee, teamIds) {
 }
 
 export async function createFee(store, me, b) {
-  const kind = KINDS[b.kind] ? b.kind : "expense";
+  const kind = KINDS[b.feeKind] ? b.feeKind : "expense"; // b.kind is the request type ("fee")
   const amount = Math.round(Number(b.amount) * 100);
   if (!(amount > 0 && amount <= 500000)) return { error: "Enter an amount between $0.01 and $5,000", status: 400 };
   const title = cleanName(b.title) || KINDS[kind];

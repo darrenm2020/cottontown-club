@@ -79,10 +79,11 @@ test("deleting: sender or coach, not other parents", async () => {
 });
 
 test("fees: who can bill, what parents see, statuses and scholarships", async () => {
-  assert.equal((await api("POST", "", { kind: "fee", kind2: "", title: "Dues", amount: 150, scope: { type: "club" } }, coachA.token)).status, 403, "only admins bill the club");
-  const club = (await api("POST", "", { kind: "fee", title: "Fall dues", amount: 150, scope: { type: "club" }, due: "2026-11-01" }, admin.token)).j.fee;
-  Object.assign(club, { kind: "dues" });
-  const ref = (await api("POST", "", { kind: "fee", title: "Ref fees", amount: 12.5, scope: { type: "team", team: "a" } }, coachA.token)).j.fee;
+  assert.equal((await api("POST", "", { kind: "fee", feeKind: "dues", title: "Dues", amount: 150, scope: { type: "club" } }, coachA.token)).status, 403, "only admins bill the club");
+  const club = (await api("POST", "", { kind: "fee", feeKind: "dues", title: "Fall dues", amount: 150, scope: { type: "club" }, due: "2026-11-01" }, admin.token)).j.fee;
+  assert.equal(club.kind, "dues");
+  const ref = (await api("POST", "", { kind: "fee", feeKind: "ref", title: "Ref fees", amount: 12.5, scope: { type: "team", team: "a" } }, coachA.token)).j.fee;
+  assert.equal(ref.kind, "ref");
   assert.equal((await api("POST", "", { kind: "fee", title: "x", amount: 5, scope: { type: "team", team: "b" } }, coachA.token)).status, 403);
   // Parent sees only their own kid, with PayPal fee added on top.
   const pf = (await api("GET", "?fees=1", null, parentA.token)).j.fees;

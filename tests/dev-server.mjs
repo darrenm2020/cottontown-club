@@ -8,7 +8,7 @@ process.env.COACH_CODE ||= "master-code";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fn = async (f) => (await import(path.join(root, "netlify/functions", f))).default;
 const coachMod = await import(path.join(root, "netlify/functions/coach.mjs"));
-const routes = { "/api/state": await fn("state.mjs"), "/api/cal": await fn("cal.mjs") };
+const routes = { "/api/state": await fn("state.mjs"), "/api/cal": await fn("cal.mjs"), "/api/club": await fn("club.mjs") };
 const fakeAI = {
   beta: { messages: { create: async (p) => fakeReply(p) } }, messages: { create: async (p) => fakeReply(p) },
 };
@@ -28,7 +28,7 @@ http.createServer(async (req, res) => {
   const h = routes[u.pathname];
   if (h) {
     const body = req.method === "POST" ? await new Promise((r) => { let d = ""; req.on("data", (c) => (d += c)); req.on("end", () => r(d)); }) : undefined;
-    const r = await h(new Request(u, { method: req.method, headers: { "Content-Type": "application/json" }, body }));
+    const r = await h(new Request(u, { method: req.method, headers: { "Content-Type": "application/json", ...(req.headers.authorization ? { Authorization: req.headers.authorization } : {}) }, body }));
     res.writeHead(r.status, Object.fromEntries(r.headers)); res.end(Buffer.from(await r.arrayBuffer())); return;
   }
   const f = path.join(root, u.pathname === "/" ? "index.html" : u.pathname);

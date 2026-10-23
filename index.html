@@ -349,6 +349,34 @@ b.btitle{border:0;padding:0}.bfield button{min-height:36px;padding:0 10px;font-s
 .bsel{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:14px;margin:4px 0}.bsel input{width:80px;min-height:36px;border:1.5px solid var(--line);border-radius:8px;padding:0 8px}
 .bai{margin-top:10px;display:flex;flex-direction:column;gap:6px;background:var(--surface-2);border-radius:12px;padding:10px}.bai textarea{border:1.5px solid var(--line);border-radius:10px;padding:8px;font:500 15px "Barlow",sans-serif;background:var(--surface);color:var(--ink)}
 .bai .btn{align-self:flex-start}
+.hubbtn{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;width:58px;height:58px;border-radius:50%;border:0;background:var(--crimson);color:#fff;font-size:26px;box-shadow:0 6px 18px rgba(0,0,0,.25);cursor:pointer}
+.hubdot{position:absolute;top:-2px;right:-2px;min-width:22px;height:22px;border-radius:11px;background:#ffd34d;color:#111;font:700 13px/22px "Barlow",sans-serif;padding:0 5px}
+.hub{position:fixed;inset:0;z-index:60;background:var(--bg,var(--surface-2));display:flex;flex-direction:column}.hub[hidden]{display:none}
+.hubtop{display:flex;gap:10px;align-items:center;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;background:var(--surface);border-bottom:1px solid var(--line)}
+.hubtop>b{font:700 20px "Barlow Condensed",sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:30%}.hubtabs{flex:1;flex-wrap:nowrap}.hubtabs button{flex:1;min-height:38px;padding:0 8px;font-size:16px}
+.hubx{border:0;background:var(--surface-2);border-radius:50%;width:38px;height:38px;font-size:18px;color:var(--ink);flex:none}
+.hubbody{flex:1;overflow:auto;padding:12px 14px calc(14px + env(safe-area-inset-bottom,0px));max-width:760px;width:100%;margin:0 auto;box-sizing:border-box;display:flex;flex-direction:column}
+.hubmsg{background:var(--ink);color:var(--surface);text-align:center;padding:8px;font-weight:600}
+.hubbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}.hubbar b{font:700 20px "Barlow Condensed",sans-serif}
+.hrow{display:flex;gap:10px;align-items:center;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:var(--surface);padding:10px 12px;color:var(--ink);cursor:pointer}
+.hrow small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hrow.unread b{font-weight:800}.hinfo{flex:1;min-width:0}.hico{font-size:22px}
+.htime{font-size:12px;color:var(--muted);display:flex;flex-direction:column;align-items:flex-end;gap:4px}.udot{width:10px;height:10px;border-radius:50%;background:var(--crimson);display:block}
+.hlist{flex:1;overflow:auto;display:flex;flex-direction:column;gap:6px;padding:6px 0;min-height:200px}
+.hm{display:flex}.hm.mine{justify-content:flex-end}.hmb{max-width:80%;background:var(--surface);border:1px solid var(--line);border-radius:14px 14px 14px 4px;padding:7px 11px}
+.hm.mine .hmb{background:var(--crimson);color:#fff;border-color:var(--crimson);border-radius:14px 14px 4px 14px}.hm.mine .linkb{color:#fff}
+.hmb b{font:700 14px "Barlow",sans-serif;display:block}.hmb small{display:block;font-size:11px;opacity:.75;margin-top:2px}.hm.del{color:var(--muted);font-style:italic;font-size:13px;justify-content:center}
+.hrole{font:600 11px "Barlow",sans-serif;background:var(--surface-2);color:var(--ink);border-radius:8px;padding:0 5px}
+.hpin{background:#fff6d6;color:#5a4500;border-radius:10px;padding:8px 10px;font-size:14px;margin-bottom:6px}
+.hcomp{display:flex;gap:6px;align-items:flex-end;position:sticky;bottom:0;background:inherit;padding-top:6px}.hcomp textarea{flex:1;border:1.5px solid var(--line);border-radius:14px;padding:9px 12px;font:500 16px "Barlow",sans-serif;resize:none;background:var(--surface);color:var(--ink)}
+.fee .feeh{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;border:0;padding:0;background:none}.fee .feeh small{display:block;color:var(--muted);font-size:13px}
+.fst{font:700 12px "Barlow",sans-serif;border-radius:10px;padding:2px 8px;background:var(--surface-2);white-space:nowrap}.fst.paid,.fst.outside,.fst.scholarship,.fst.waived{background:#dcf5e3;color:#14612b}.fst.pending{background:#fff1c7;color:#6b4e00}.fst.unpaid{background:#fde2e2;color:#8a1c1c}
+.feeamt{font:700 28px "Barlow Condensed",sans-serif;margin:6px 0}.feeamt small{font:500 13px "Barlow",sans-serif;color:var(--muted)}
+.btn.venmo{background:#008cff;color:#fff;border-color:#008cff}.ppbox{margin:8px 0;max-width:380px}
+.fprog{text-align:right}.fprog b{font:700 20px "Barlow Condensed",sans-serif;display:block}.fprog small{color:var(--muted);font-size:12px}
+.pbar{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;margin:8px 0}.pbar i{display:block;height:100%;background:#1a7f37}
+.frow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}.fpn{flex:1;min-width:120px}.fpn small{display:block;color:var(--muted);font-size:12px}
+.frow select,.schin input{min-height:38px;border:1.5px solid var(--line);border-radius:9px;padding:0 6px;background:var(--surface);color:var(--ink);font:500 14px "Barlow",sans-serif}.schin{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px}.schin input{width:76px}
+.payee{border-top:1px solid var(--line);padding:10px 0}.invlink{word-break:break-all}
 .cmte{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin:8px 0}
 .cm{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;border:1.5px solid var(--line);background:var(--surface-2);border-radius:12px;padding:8px 10px;color:var(--ink);cursor:pointer}
 .cm.on{border-color:var(--crimson);background:color-mix(in srgb,var(--crimson) 8%,var(--surface))}
@@ -1277,7 +1305,7 @@ function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').rep
 const PUB_VER='2026-10-23a';
 /* APP_VER changes with every deploy that coach devices should pick up. When the published page's APP_VER
    differs from the running one, a coach device reloads itself if no clock is running, or shows a Refresh button. */
-const APP_VER='2026-10-24c';
+const APP_VER='2026-10-24d';
 const VER={tag:null,ready:false};
 async function checkVersion(){
   if(!SY.on||!canEdit()||document.visibilityState!=='visible')return;
@@ -2676,6 +2704,191 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-cact
     if(CLUB.on){try{await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'club',team:'cottontown',club,code:S.master||''})});}catch(err){}}
     if(CLUB.data)CLUB.data.club=club;CLUB.edit=false;renderClub();clubFetch();}
 });
+/* ---------- Club hub: messages and fees, on the club page and every team page ---------- */
+const CLUB_API='/api/club';
+const H={open:false,tab:'msgs',ch:null,msgs:[],inbox:[],people:null,fees:null,busy:false,unread:0,join:null,feeOpen:{},newFee:false,poll:0};
+const memTok=()=>S&&S.mem&&S.mem.token;
+const myMem=()=>S&&S.mem&&S.mem.me;
+async function hubApi(method,qs,body){
+  try{const r=await fetch(CLUB_API+(qs||''),{method,headers:Object.assign({'Content-Type':'application/json'},memTok()?{Authorization:'Bearer '+memTok()}:{}),body:body?JSON.stringify(body):undefined});
+    const ct=r.headers.get('content-type')||'';const j=ct.includes('json')?await r.json():{text:await r.text()};
+    if(r.status===401&&memTok()&&!body){S.mem=null;saveLocal();}
+    return r.ok?j:Object.assign({error:j.error||'Something went wrong'},{status:r.status});}
+  catch(e){return {error:'No connection. Try again in a moment.'};}}
+const $$h=id=>document.getElementById(id);
+function hubSay(m){H.msg=m;H.msgT=Date.now()+3000;renderHub();setTimeout(()=>{if(Date.now()>=H.msgT){H.msg='';renderHub();}},3100);}
+const hubLive=()=>location.protocol.startsWith('http');
+const fmt$=c=>'$'+(c/100).toFixed(2);
+const roleName={admin:'Club admin',coach:'Coach',parent:'Parent'};
+const chTitle=ch=>{const x=H.inbox.find(c=>c.ch===ch);return x?x.title:ch==='club'?'Club announcements':ch==='coaches'?'Club coaches':'Messages';};
+const canPostCh=ch=>{const me=myMem();if(!me)return false;if(ch==='club')return me.role==='admin';if(ch==='coaches')return me.role!=='parent';return true;};
+const timeAgo=t=>{const d=(Date.now()-t)/1000;if(d<60)return 'now';if(d<3600)return Math.floor(d/60)+'m';if(d<86400)return Math.floor(d/3600)+'h';return new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric'});};
+
+async function hubRefresh(full){
+  if(!memTok()||!hubLive())return;
+  if(H.open&&H.tab==='msgs'&&!H.ch||full){const j=await hubApi('GET','?inbox=1');if(!j.error){H.inbox=j.channels;H.unread=j.channels.filter(c=>c.unread).length;}}
+  else{const j=await hubApi('GET','?me=1');if(!j.error){H.unread=j.unread;if(j.me){S.mem.me=j.me;saveLocal();}}}
+  if(H.open&&H.ch)await hubLoadCh(true);
+  renderHubBtn();if(H.open)renderHub();
+}
+async function hubLoadCh(quiet){const ch=H.ch;const last=H.msgs.length?H.msgs[H.msgs.length-1].id:'';
+  const j=await hubApi('GET','?ch='+encodeURIComponent(ch)+(quiet&&last?'&since='+last:''));if(j.error||H.ch!==ch)return;
+  if(quiet&&last){if(j.messages.length){H.msgs=H.msgs.concat(j.messages);H.scroll=true;}}else{H.msgs=j.messages;H.scroll=true;}H.pin=j.pin;
+  const lt=H.msgs.length?H.msgs[H.msgs.length-1].at:0;if(lt)hubApi('POST','',{kind:'read',ch,at:lt+1});}
+function hubOpen(tab){H.open=true;H.tab=tab||H.tab;renderHub();hubRefresh(true);if(H.tab==='fees')hubLoadFees();}
+async function hubLoadFees(){const j=await hubApi('GET','?fees=1');if(!j.error){H.fees=j.fees;H.kinds=j.kinds;}else H.fees=[];renderHub();}
+
+function renderHubBtn(){let b=$$h('hubbtn');if(!b){b=document.createElement('button');b.id='hubbtn';b.className='hubbtn';b.setAttribute('data-hact','open');b.setAttribute('aria-label','Messages and fees');document.body.appendChild(b);}
+  b.hidden=!hubLive()||H.open;b.innerHTML='💬'+(H.unread?`<span class="hubdot">${H.unread}</span>`:'');}
+function renderHub(){let el=$$h('hub');if(!el){el=document.createElement('div');el.id='hub';el.className='hub';document.body.appendChild(el);}
+  el.hidden=!H.open;renderHubBtn();if(!H.open)return;
+  const me=myMem();let h=`<div class="hubtop"><b>${esc(clubName())}</b><div class="seg hubtabs">${me?[['msgs','Messages'+(H.unread?' ('+H.unread+')':'')],['fees','Fees'],['me','Me']].map(([t,l])=>`<button data-hact="tab" data-t="${t}" aria-pressed="${H.tab===t}">${l}</button>`).join(''):''}</div><button class="hubx" data-hact="close" aria-label="Close">✕</button></div>`;
+  if(H.msg)h+=`<div class="hubmsg">${esc(H.msg)}</div>`;
+  h+=`<div class="hubbody">${!me?hubJoinHTML():H.tab==='fees'?hubFeesHTML():H.tab==='me'?hubMeHTML():H.ch?hubChHTML():hubInboxHTML()}</div>`;
+  const ta=$$h('hub-text');const keep=ta?ta.value:null;const ae=document.activeElement&&document.activeElement.id;
+  el.innerHTML=h;
+  if(keep!=null&&$$h('hub-text'))$$h('hub-text').value=keep;if(ae&&$$h(ae)&&/^hub-/.test(ae))$$h(ae).focus();
+  if(H.scroll){const l=$$h('hub-list');if(l)l.scrollTop=l.scrollHeight;H.scroll=false;}
+}
+function hubJoinHTML(){
+  const inv=H.join;let h='<div class="card">';
+  if(inv&&inv.players){h+=`<h3>Join ${esc(inv.teamName)}</h3><p class="fine">Get team messages, the schedule and fees in one place.</p>
+    <label class="fld">Your name<input id="hub-name" placeholder="e.g. Jamie Smith" autocomplete="name"></label>
+    <div class="fld">Your player${inv.players.length>1?'(s)':''}<div class="seg">${inv.players.map(p=>`<button data-hact="kid" data-id="${p.id}" aria-pressed="${(H.kids||[]).includes(p.id)}">${esc(p.name)}</button>`).join('')}</div></div>
+    <button class="btn primary-s" data-hact="joininv">Join</button>`;}
+  else if(inv&&inv.error)h+=`<h3>Invite link</h3><p>${esc(inv.error)}</p>`;
+  else{const coach=S.team&&S.auth&&S.auth[S.team];
+    h+=`<h3>Messages and fees</h3>`+(coach?`<p class="fine">Join as a coach of ${esc((CFG()&&CFG().name)||'this team')} with the coach code on this device.</p><label class="fld">Your name<input id="hub-name" placeholder="e.g. Coach Darren" autocomplete="name"></label><button class="btn primary-s" data-hact="joincoach">Join as coach</button>`
+      :`<p>Parents: open the invite link from your coach to join your team. Coaches: open your team and unlock it with your coach code first.</p>`);}
+  return h+'</div>';}
+function hubInboxHTML(){const me=myMem();
+  let h=`<div class="hubbar"><b>Messages</b><button class="btn small primary-s" data-hact="newdm">New message</button></div>`;
+  if(H.picking){h+=`<div class="card"><b>Message someone</b>${H.people?H.people.length?H.people.map(p=>`<button class="hrow" data-hact="dm" data-id="${p.id}"><b>${esc(p.name)}</b><small>${esc(roleName[p.role]||'')}${p.kids.length?' · '+esc(p.kids.join(', ')):''}</small></button>`).join(''):'<p class="muted">No one to message yet.</p>':'<p class="muted">Loading…</p>'}<button class="btn small" data-hact="pickcancel">Cancel</button></div>`;}
+  h+=`<div class="clist">${H.inbox.map(c=>`<button class="hrow ${c.unread?'unread':''}" data-hact="ch" data-ch="${esc(c.ch)}"><span class="hico">${c.dm?'👤':c.ch==='club'?'📣':c.ch==='coaches'?'🧢':'⚽'}</span><span class="hinfo"><b>${esc(c.title)}</b><small>${c.last?esc((c.last.from===me.id?'You: ':c.dm?'':c.last.name+': ')+c.last.text):'No messages yet'}</small></span><span class="htime">${c.last?timeAgo(c.last.at):''}${c.unread?'<i class="udot"></i>':''}</span></button>`).join('')||'<p class="muted" style="padding:12px">Loading…</p>'}</div>`;
+  return h;}
+function hubChHTML(){const me=myMem();const ch=H.ch;const team=/^t\./.test(ch)?ch.slice(2):null;
+  const mod=me.role==='admin'||(team&&me.role==='coach'&&me.teams.includes(team))||(ch==='coaches'&&me.role!=='parent');
+  let h=`<div class="hubbar"><button class="btn small" data-hact="back">‹ Back</button><b>${esc(chTitle(ch))}</b></div>`;
+  if(H.pin)h+=`<div class="hpin">📌 ${esc(H.pin.text)}${mod?' <button class="linkb" data-hact="unpin">Unpin</button>':''}</div>`;
+  h+=`<div class="hlist" id="hub-list">${H.msgs.length?H.msgs.map(m=>m.deleted?`<div class="hm del">Message removed</div>`:`<div class="hm ${m.from===me.id?'mine':''}"><div class="hmb">${m.from===me.id?'':`<b>${esc(m.name)}${m.role&&m.role!=='parent'?' <span class="hrole">'+esc(roleName[m.role])+'</span>':''}</b>`}<div>${esc(m.text).replace(/\n/g,'<br>')}</div><small>${timeAgo(m.at)}${(m.from===me.id||mod)?` · <button class="linkb" data-hact="del" data-id="${m.id}">Remove</button>`:''}${mod&&!/^dm\./.test(ch)?` · <button class="linkb" data-hact="pin" data-id="${m.id}">Pin</button>`:''}</small></div></div>`).join(''):'<p class="muted" style="text-align:center">No messages yet. Say hello!</p>'}</div>`;
+  h+=canPostCh(ch)?`<div class="hcomp"><textarea id="hub-text" rows="2" placeholder="Message ${esc(chTitle(ch))}"></textarea><button class="btn primary-s" data-hact="send">Send</button></div>`:`<p class="fine" style="text-align:center">Only club admins post announcements here.</p>`;
+  return h;}
+function hubFeesHTML(){const me=myMem();if(!H.fees)return '<p class="muted">Loading fees…</p>';
+  const canBill=me.role!=='parent';let h='';
+  if(canBill)h+=`<div class="hubbar"><b>Fees</b><span><button class="btn small" data-hact="payees">Payment settings</button> <button class="btn small primary-s" data-hact="newfee">New fee</button></span></div>`;
+  if(H.newFee)h+=hubNewFeeHTML();
+  if(H.payees)h+=hubPayeesHTML();
+  const mine=H.fees.filter(f=>!f.manage),man=H.fees.filter(f=>f.manage);
+  const kidsFees=[];mine.forEach(f=>f.players.forEach(v=>{if((me.kids||[]).some(k=>k.team===v.team&&k.player===v.player))kidsFees.push({f,v});}));
+  if(kidsFees.length||me.role==='parent'){h+=`<h3>What I owe</h3>`;if(!kidsFees.length)h+='<p class="muted">Nothing right now.</p>';
+    kidsFees.forEach(({f,v})=>{const left=v.owed-v.paid;const done=['paid','outside','waived','scholarship'].includes(v.status);
+      h+=`<div class="card fee"><div class="feeh"><span><b>${esc(f.title)}</b><small>${esc((H.kinds||{})[f.kind]||'')} · ${esc(v.name)}${f.due?' · due '+esc(new Date(f.due+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})):''}</small></span><span class="fst ${v.status}">${esc(statusName(v.status))}</span></div>
+        ${f.note?`<p class="fine">${esc(f.note)}</p>`:''}<div class="feeamt">${done?fmt$(v.owed):fmt$(left)}${v.sch?` <small>(after ${fmt$(v.sch)} scholarship)</small>`:''}</div>`;
+      if(!done){const pi=f.payeeInfo;const note=encodeURIComponent(f.title+' - '+v.name);
+        if(pi.paypal)h+=`<div class="ppbox" id="pp-${f.id}-${v.team}-${v.player}" data-fee="${f.id}" data-team="${v.team}" data-player="${v.player}" data-cid="${esc(pi.clientId)}"></div><p class="fine">PayPal or Venmo checkout: ${fmt$(v.withFee)} including ${fmt$(v.withFee-left)} processing, so ${esc(pi.name)} receives the full amount.</p>`;
+        if(pi.venmo)h+=`<div class="calbtns"><a class="btn small venmo" href="https://venmo.com/${encodeURIComponent(pi.venmo)}?txn=pay&amount=${(left/100).toFixed(2)}&note=${note}" target="_blank" rel="noopener">Pay ${fmt$(left)} in the Venmo app</a>${v.status==='pending'?'<span class="fine">Waiting for the coach to confirm</span>':`<button class="btn small" data-hact="ipaid" data-fee="${f.id}" data-team="${v.team}" data-player="${v.player}">I paid with Venmo</button>`}</div>`;
+        if(!pi.paypal&&!pi.venmo)h+=`<p class="fine">Payment details aren’t set up yet. Your coach will let you know how to pay.</p>`;}
+      h+=`</div>`;});}
+  if(canBill){h+=`<h3>Fees I manage</h3>`;if(!man.length)h+='<p class="muted">No fees yet. Tap New fee to bill a team.</p>';
+    man.forEach(f=>{const t=f.totals;const open=H.feeOpen[f.id];
+      h+=`<div class="card fee"><button class="feeh hrow" data-hact="feeopen" data-id="${f.id}"><span><b>${esc(f.title)}</b><small>${esc((H.kinds||{})[f.kind]||'')} · ${fmt$(f.amount)} each${f.due?' · due '+esc(f.due):''} · to ${esc(f.payeeInfo.name)}</small></span><span class="fprog"><b>${t.settled}/${t.count}</b><small>${fmt$(t.paid)} of ${fmt$(t.owed)}</small></span></button>
+        <div class="pbar"><i style="width:${t.count?Math.round(t.settled/t.count*100):0}%"></i></div>`;
+      if(open){h+=`<div class="frows">${f.players.map(v=>`<div class="frow"><span class="fpn"><b>${esc(v.name)}</b><small>${esc(v.team)}${v.method?' · '+esc(v.method):''}${v.note?' · '+esc(v.note):''}</small></span>
+          <select data-hchg="status" data-fee="${f.id}" data-team="${v.team}" data-player="${v.player}">${['unpaid','pending','paid','outside','waived'].map(s=>`<option value="${s}" ${v.status===s?'selected':''}>${statusName(s)}</option>`).join('')}${v.status==='scholarship'?'<option selected disabled>Scholarship</option>':''}</select>
+          <label class="schin">Scholarship $<input type="number" min="0" step="0.01" inputmode="decimal" value="${v.sch?(v.sch/100).toFixed(2):''}" data-hchg="sch" data-fee="${f.id}" data-team="${v.team}" data-player="${v.player}"></label></div>`).join('')}</div>
+        <div class="calbtns"><button class="btn small" data-hact="nudge" data-id="${f.id}">Nudge unpaid</button><button class="btn small" data-hact="csv" data-id="${f.id}">Export CSV</button><button class="btn small" data-hact="feearch" data-id="${f.id}">Archive</button></div>`;}
+      h+=`</div>`;});}
+  return h;}
+const statusName=s=>({unpaid:'Unpaid',pending:'Pending',paid:'Paid',outside:'Paid outside app',waived:'Waived',scholarship:'Scholarship'}[s]||s);
+function hubNewFeeHTML(){const me=myMem();const teams=me.role==='admin'?Object.keys(S.T||{}).filter(id=>S.T[id].cfg).concat(((CLUB.data&&CLUB.data.teams)||[]).map(t=>t.id)).filter((v,i,a)=>a.indexOf(v)===i):me.teams;
+  const tname=id=>{const t=((CLUB.data&&CLUB.data.teams)||[]).find(x=>x.id===id);return (t&&t.name)||(S.T&&S.T[id]&&S.T[id].cfg&&S.T[id].cfg.name)||id;};
+  return `<div class="card"><h3>New fee</h3><div class="seg">${Object.entries(H.kinds||{dues:'Club dues',tournament:'Tournament fee',ref:'Ref fees',expense:'Shared expense'}).filter(([k])=>k!=='dues'||me.role==='admin').map(([k,l])=>`<button data-hact="fkind" data-k="${k}" aria-pressed="${(H.fk||'tournament')===k}">${l}</button>`).join('')}</div>
+    <div class="grid2"><label class="fld">What for<input id="hub-ftitle" placeholder="e.g. KICKS Invitational"></label><label class="fld">Amount per player ($)<input id="hub-famt" type="number" min="0.01" step="0.01" inputmode="decimal"></label></div>
+    <div class="grid2"><label class="fld">Due date<input id="hub-fdue" type="date"></label><label class="fld">Who pays<select id="hub-fscope">${me.role==='admin'?'<option value="club">Every player in the club</option>':''}${teams.map(t=>`<option value="${esc(t)}">${esc(tname(t))}</option>`).join('')}</select></label></div>
+    <label class="fld">Note for parents (optional)<input id="hub-fnote" placeholder="e.g. Covers 3 games and the ref fees"></label>
+    <label class="fld">Money goes to<select id="hub-fpayee"><option value="team">The team manager</option><option value="club">The club treasurer</option></select></label>
+    <div class="calbtns"><button class="btn small primary-s" data-hact="feecreate">Create fee</button><button class="btn small" data-hact="newfeecancel">Cancel</button></div></div>`;}
+function hubPayeesHTML(){const me=myMem();const list=(me.role==='admin'?['club']:[]).concat(me.teams||[]);
+  return `<div class="card"><h3>Payment settings</h3><p class="fine">Where parents’ money goes. Venmo is free: parents pay in the Venmo app and you mark them paid. PayPal checkout (with a Venmo button) marks them paid automatically and adds the processing fee to the parent’s total. For PayPal, create an app at developer.paypal.com and paste its Client ID and Secret.</p>
+    ${list.map(p=>`<div class="payee"><b>${p==='club'?'Club treasurer':esc(p)+' team manager'}</b>
+      <div class="grid2"><label class="fld">Name shown to parents<input id="hub-pn-${p}" placeholder="${p==='club'?'e.g. Club treasurer':'e.g. Team manager'}"></label><label class="fld">Venmo username<input id="hub-pv-${p}" placeholder="@username"></label></div>
+      <div class="grid2"><label class="fld">PayPal Client ID<input id="hub-pc-${p}" autocomplete="off"></label><label class="fld">PayPal Secret<input id="hub-ps-${p}" type="password" autocomplete="off" placeholder="saved, never shown"></label></div>
+      <label class="fld">PayPal mode<select id="hub-pe-${p}"><option value="sandbox">Test (sandbox)</option><option value="live">Live</option></select></label>
+      <button class="btn small primary-s" data-hact="payeesave" data-p="${p}">Save</button></div>`).join('')}
+    <button class="btn small" data-hact="payeesclose">Done</button></div>`;}
+function hubMeHTML(){const me=myMem();
+  let h=`<div class="card"><h3>${esc(me.name)}</h3><p class="fine">${esc(roleName[me.role])}${me.kids.length?' · '+esc(me.kids.map(k=>k.name).join(', ')):''}</p>
+    <label class="fld">Your name<input id="hub-myname" value="${esc(me.name)}"></label><button class="btn small" data-hact="rename">Save name</button></div>`;
+  if(me.role!=='parent'){h+=`<div class="card"><h3>Invite parents</h3><p class="fine">Send this link to your team’s parents (text, email or TeamReach). They tap it, enter their name and pick their player.</p>
+    ${(me.teams||[]).map(t=>`<div class="srow"><div class="sinfo"><b>${esc(t)}</b>${H.inv&&H.inv[t]?`<div class="fine invlink">${esc(H.inv[t])}</div>`:''}</div>${H.inv&&H.inv[t]?`<button class="btn small" data-copy="${esc(H.inv[t])}">Copy link</button>`:`<button class="btn small primary-s" data-hact="invite" data-t="${t}">Make link</button>`}</div>`).join('')}</div>`;}
+  h+=`<div class="card"><button class="btn small danger-s ${H.armOut?'armed':''}" data-hact="signout">${H.armOut?'Tap again to sign out on this device':'Sign out on this device'}</button></div>`;
+  return h;}
+// PayPal buttons load only when a fee card with PayPal is on screen.
+const PPL={};
+function hubPayPal(){document.querySelectorAll('.ppbox:empty').forEach(box=>{const cid=box.dataset.cid;if(!cid)return;
+  const go=()=>{if(!window.paypal||box.childElementCount)return;window.paypal.Buttons({style:{layout:'vertical',height:40},
+    createOrder:async()=>{const j=await hubApi('POST','',{kind:'ppcreate',fee:box.dataset.fee,team:box.dataset.team,player:box.dataset.player});if(j.error){hubSay(j.error);throw new Error(j.error);}return j.orderId;},
+    onApprove:async(data)=>{const j=await hubApi('POST','',{kind:'ppcapture',fee:box.dataset.fee,team:box.dataset.team,player:box.dataset.player,orderId:data.orderID});hubSay(j.error||'Paid. Thank you!');hubLoadFees();},
+    onError:()=>hubSay('PayPal had a problem. Nothing was charged.')}).render(box).catch(()=>{});};
+  if(window.paypal&&PPL.cid===cid){go();return;}
+  if(PPL[cid]==='loading'){PPL.wait=(PPL.wait||[]).concat(go);return;}
+  PPL[cid]='loading';PPL.cid=cid;const s=document.createElement('script');s.src='https://www.paypal.com/sdk/js?client-id='+encodeURIComponent(cid)+'&currency=USD&enable-funding=venmo&components=buttons';
+  s.onload=()=>{PPL[cid]='ok';go();(PPL.wait||[]).forEach(f=>f());PPL.wait=[];};document.head.appendChild(s);});}
+const _renderHub=renderHub;renderHub=function(){_renderHub();if(H.open&&H.tab==='fees')setTimeout(hubPayPal,0);};
+document.addEventListener('change',async e=>{const el=e.target.closest('[data-hchg]');if(!el)return;const d=el.dataset;
+  const body={kind:'pay',fee:d.fee,team:d.team,player:d.player};if(d.hchg==='status')body.status=el.value;else body.sch=el.value||0;
+  const j=await hubApi('POST','',body);if(j.error)hubSay(j.error);hubLoadFees();});
+document.addEventListener('keydown',e=>{if(e.target&&e.target.id==='hub-text'&&e.key==='Enter'&&!e.shiftKey&&window.matchMedia('(pointer:fine)').matches){e.preventDefault();hubAct('send',{});}});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-hact]');if(!b)return;hubAct(b.dataset.hact,b.dataset);});
+async function hubAct(a,d){const me=myMem();const v=id=>(($$h(id)||{}).value||'').trim();
+  switch(a){
+    case 'open':hubOpen();break;
+    case 'close':H.open=false;H.ch=null;renderHub();break;
+    case 'tab':H.tab=d.t;H.ch=null;H.picking=false;renderHub();if(d.t==='fees')hubLoadFees();if(d.t==='msgs')hubRefresh(true);break;
+    case 'kid':{const k=H.kids||[];H.kids=k.includes(d.id)?k.filter(x=>x!==d.id):k.concat(d.id);const n=v('hub-name');renderHub();if($$h('hub-name'))$$h('hub-name').value=n;break;}
+    case 'joininv':{const name=v('hub-name');if(!name){hubSay('Add your name');break;}if(!(H.kids||[]).length){hubSay('Tap your player');break;}
+      const j=await hubApi('POST','',{kind:'join',invite:H.join.code,name,kids:H.kids});if(j.error){hubSay(j.error);break;}
+      S.mem={token:j.token,me:j.me};saveLocal();H.join=null;history.replaceState(null,'',location.pathname+'?team='+encodeURIComponent(j.me.teams[0]||''));hubSay('Welcome, '+j.me.name+'!');hubRefresh(true);break;}
+    case 'joincoach':{const name=v('hub-name');if(!name){hubSay('Add your name');break;}
+      const j=await hubApi('POST','',{kind:'join',team:S.team,code:S.auth[S.team],name});if(j.error){hubSay(j.error);break;}S.mem={token:j.token,me:j.me};saveLocal();hubSay('You’re in. Invite parents from the Me tab.');hubRefresh(true);break;}
+    case 'ch':H.ch=d.ch;H.msgs=[];H.pin=null;renderHub();await hubLoadCh(false);const c=H.inbox.find(x=>x.ch===d.ch);if(c&&c.unread){c.unread=false;H.unread=Math.max(0,H.unread-1);}renderHub();break;
+    case 'back':H.ch=null;renderHub();hubRefresh(true);break;
+    case 'newdm':H.picking=true;renderHub();if(!H.people){const j=await hubApi('GET','?people=1');H.people=j.people||[];renderHub();}break;
+    case 'pickcancel':H.picking=false;renderHub();break;
+    case 'dm':{const ch='dm.'+[me.id,d.id].sort().join('.');const p=(H.people||[]).find(x=>x.id===d.id);if(!H.inbox.some(x=>x.ch===ch))H.inbox.unshift({ch,title:p?p.name:'Message',dm:true});H.picking=false;hubAct('ch',{ch});break;}
+    case 'send':{const t=$$h('hub-text');const text=t&&t.value.trim();if(!text||H.sending)break;H.sending=true;const j=await hubApi('POST','',{kind:'send',ch:H.ch,text});H.sending=false;
+      if(j.error){hubSay(j.error);break;}t.value='';H.msgs.push(j.message);H.scroll=true;renderHub();if($$h('hub-text'))$$h('hub-text').value='';break;}
+    case 'del':{const j=await hubApi('POST','',{kind:'del',ch:H.ch,id:d.id});if(j.error)hubSay(j.error);else{const m=H.msgs.find(x=>x.id===d.id);if(m){m.deleted=true;}renderHub();}break;}
+    case 'pin':{const m=H.msgs.find(x=>x.id===d.id);const j=await hubApi('POST','',{kind:'pin',ch:H.ch,text:m&&m.text});if(j.error)hubSay(j.error);else{H.pin={text:m.text};renderHub();}break;}
+    case 'unpin':{await hubApi('POST','',{kind:'pin',ch:H.ch,text:''});H.pin=null;renderHub();break;}
+    case 'ipaid':{const j=await hubApi('POST','',{kind:'pay',fee:d.fee,team:d.team,player:d.player,status:'pending',method:'venmo'});hubSay(j.error||'Thanks! Your coach will confirm it.');hubLoadFees();break;}
+    case 'newfee':H.newFee=!H.newFee;H.payees=false;renderHub();break;
+    case 'newfeecancel':H.newFee=false;renderHub();break;
+    case 'fkind':H.fk=d.k;{const keep=['hub-ftitle','hub-famt','hub-fdue','hub-fnote','hub-fscope','hub-fpayee'].map(id=>[id,v(id)]);renderHub();keep.forEach(([id,x])=>{if($$h(id)&&x)$$h(id).value=x;});}break;
+    case 'feecreate':{const sc=v('hub-fscope');
+      const j=await hubApi('POST','',{kind:'fee',feeKind:H.fk||'tournament',title:v('hub-ftitle'),amount:v('hub-famt'),due:v('hub-fdue'),note:v('hub-fnote'),payee:v('hub-fpayee'),scope:sc==='club'?{type:'club'}:{type:'team',team:sc}});
+      if(j.error){hubSay(j.error);break;}
+      H.newFee=false;hubSay('Fee created. Parents see it under Fees.');hubLoadFees();break;}
+    case 'feeopen':H.feeOpen[d.id]=!H.feeOpen[d.id];renderHub();break;
+    case 'nudge':{const j=await hubApi('POST','',{kind:'nudge',fee:d.id});hubSay(j.error||(j.sent?`Reminder sent to ${j.sent} famil${j.sent===1?'y':'ies'}`:'No one to remind (unpaid players’ parents haven’t joined yet).'));break;}
+    case 'csv':{try{const r=await fetch(CLUB_API+'?csv='+d.id,{headers:{Authorization:'Bearer '+memTok()}});const t=await r.text();const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv'}));a.download='fee.csv';a.click();}catch(err){hubSay('Couldn’t export');}break;}
+    case 'feearch':{const j=await hubApi('POST','',{kind:'feearchive',fee:d.id});hubSay(j.error||'Fee archived');hubLoadFees();break;}
+    case 'payees':H.payees=!H.payees;H.newFee=false;renderHub();break;
+    case 'payeesclose':H.payees=false;renderHub();break;
+    case 'payeesave':{const p=d.p;const body={kind:'payee',payee:p};if(v('hub-pn-'+p))body.name=v('hub-pn-'+p);if(v('hub-pv-'+p))body.venmo=v('hub-pv-'+p);
+      if(v('hub-pc-'+p))body.paypal={clientId:v('hub-pc-'+p),secret:v('hub-ps-'+p),env:v('hub-pe-'+p)};
+      const j=await hubApi('POST','',body);hubSay(j.error||'Saved'+(j.payee&&j.payee.paypal?' (PayPal '+j.payee.env+')':''));break;}
+    case 'rename':{const j=await hubApi('POST','',{kind:'profile',name:v('hub-myname')});if(!j.error){S.mem.me=j.me;saveLocal();}hubSay(j.error||'Saved');break;}
+    case 'invite':{const j=await hubApi('POST','',{kind:'invite',team:d.t});if(j.error){hubSay(j.error);break;}H.inv=H.inv||{};H.inv[d.t]=location.origin+location.pathname+'?team='+encodeURIComponent(d.t)+'&join='+j.code;renderHub();break;}
+    case 'signout':if(H.armOut){S.mem=null;saveLocal();H.armOut=false;H.open=false;H.unread=0;renderHub();}else{H.armOut=true;renderHub();setTimeout(()=>{H.armOut=false;renderHub();},4000);}break;
+  }}
+async function hubInit(){
+  renderHubBtn();if(!hubLive())return;
+  const q=new URLSearchParams(location.search);const code=q.get('join');
+  if(code){const j=await hubApi('GET','?invite='+encodeURIComponent(code));H.join=j.error?{error:j.error}:Object.assign(j,{code});if(memTok()&&!j.error){/* already joined: add this team */}H.open=true;renderHub();}
+  hubRefresh(false);
+  setInterval(()=>{if(document.hidden||!memTok())return;H.poll++;if(H.open&&H.ch)hubRefresh(false);else if(H.open?H.poll%3===0:H.poll%12===0)hubRefresh(H.open);},5000);
+}
 function clubInit(){
   document.querySelector('.app').style.display='none';$('club').hidden=false;document.title='Club scoreboard';
   renderClub();clubFetch();setInterval(()=>{if(document.visibilityState==='visible'&&!CLUB.edit)clubFetch();},5000);setInterval(clubTick,1000);
@@ -2684,6 +2897,7 @@ function clubInit(){
 function init(){
   S=load();if(!S.dv){S.dv=uid('d');saveLocal();}
   const QP=new URLSearchParams(location.search);
+  setTimeout(hubInit,600);
   if(QP.has('club')||!QP.has('team')){clubInit();return;}
   const qp=new URLSearchParams(location.search).get('team');
   if(qp&&/^[a-z0-9-]{1,40}$/.test(qp)){S.team=qp;if(!S.T[qp])S.T[qp]={cfg:null,games:{}};}
