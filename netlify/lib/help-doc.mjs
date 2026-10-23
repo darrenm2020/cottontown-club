@@ -19,6 +19,12 @@ export const HELP_DOC = `
 - End game finishes the game. Ties can go to overtime or penalty kicks.
 - Official result: after a game, "Confirm official result" locks the final score (from SincSports, GotSport, the ref, etc.). After that no phone can change the score. Any coach can lock a result; only the main code can change or remove one.
 
+## Talk to change the plan (Plan tab, coaches)
+- At the bottom of the Plan tab: tap 🎤 and say the change (or type it and tap Go). For example "Olivia in goal the whole game", "Emmie only 10 minutes each half", "Shalome is out today".
+- The app shows what will change; tap Apply to keep it or Cancel. "Undo" puts the plan back. Blocks already played can't change.
+- iPhone asks to allow the microphone the first time. If voice isn't available, type the change instead.
+- It uses the team's monthly AI requests, like the Coach tab.
+
 ## Team setup (Setup tab)
 - Team name, short name, subtitle, logo, goal song, rotation plan on/off.
 - Format and formation: 7v7 up to 11v11, preset formations, or type any shape like 4-3-2-1 (numbers must add up to the field players). "Rename positions" changes the labels shown on the field.

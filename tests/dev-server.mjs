@@ -9,12 +9,21 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fn = async (f) => (await import(path.join(root, "netlify/functions", f))).default;
 const coachMod = await import(path.join(root, "netlify/functions/coach.mjs"));
 const helpMod = await import(path.join(root, "netlify/functions/help.mjs"));
+const voiceMod = await import(path.join(root, "netlify/functions/voice.mjs"));
 const routes = { "/api/state": await fn("state.mjs"), "/api/cal": await fn("cal.mjs"), "/api/club": await fn("club.mjs") };
 const fakeAI = {
   beta: { messages: { create: async (p) => fakeReply(p) } }, messages: { create: async (p) => fakeReply(p) },
 };
 function fakeReply(p) {
-  if (p.output_config.format.schema.properties.answer) return { stop_reason: "end_turn", model: p.model, content: [{ type: "text", text: JSON.stringify({ answer: "Go to Setup, then Fix a problem, and tap Earlier versions of this game. Pick the version from before the reset and tap Restore.", escalate: false }) }] };
+  const props = p.output_config.format.schema.properties;
+  if (props.out && props.blocks) {
+    // Stand-in for Claude: "Olivia in goal" for every block that isn't locked, swapping whoever had GK into her spot.
+    const blocks = [...p.system.matchAll(/^Block \d+ \([^)]*\)( LOCKED[^:]*)?: (.*)$/gm)].map((m) => ({ locked: !!m[1], lineup: Object.fromEntries(m[2].split(", ").map((kv) => { const [k, v] = kv.split("="); return [k, v === "(empty)" ? "" : v]; })) }));
+    const out = [...p.system.matchAll(/^- ([\w-]+): .* OUT/gm)].map((m) => m[1]);
+    const nb = blocks.map((b) => { const l = { ...b.lineup }; if (b.locked) return l; const was = l.GK; const at = Object.keys(l).find((k) => l[k] === "olivia"); l.GK = "olivia"; if (at && at !== "GK") l[at] = was; return l; });
+    return { stop_reason: "end_turn", model: p.model, content: [{ type: "text", text: JSON.stringify({ possible: true, message: "Olivia is in goal for the rest of the game.", changes: ["Olivia plays GK in every block that hasn't started."], out, blocks: nb }) }] };
+  }
+  if (props.answer) return { stop_reason: "end_turn", model: p.model, content: [{ type: "text", text: JSON.stringify({ answer: "Go to Setup, then Fix a problem, and tap Earlier versions of this game. Pick the version from before the reset and tap Restore.", escalate: false }) }] };
   const play = p.output_config.format.schema.properties.steps;
   const obj = play ? { title: "Overlap on the left", field: "half", notes: "Fake play", objects: [{ id: "lb", kind: "us", label: "LB" }, { id: "lm", kind: "us", label: "LM" }, { id: "d", kind: "them", label: "" }, { id: "ball", kind: "ball", label: "" }],
       steps: [{ caption: "LM has the ball, LB starts the overlap", pos: [{ id: "lb", x: 15, y: 80 }, { id: "lm", x: 20, y: 55 }, { id: "d", x: 25, y: 45 }, { id: "ball", x: 22, y: 56 }], arrows: [{ kind: "run", from: { x: 15, y: 80 }, to: { x: 10, y: 35 } }] },
@@ -26,6 +35,7 @@ function fakeReply(p) {
 routes["/api/coach"] = (req) => coachMod.handle(req, process.env.FAKE_AI ? { client: fakeAI } : {});
 routes["/api/help"] = (req) => helpMod.handle(req, process.env.FAKE_AI ? { client: fakeAI } : {});
 routes["/api/admin"] = await fn("admin.mjs");
+routes["/api/voice"] = (req) => voiceMod.handle(req, process.env.FAKE_AI ? { client: fakeAI } : {});
 routes["/api/report"] = await fn("report.mjs");
 const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".svg": "image/svg+xml" };
 http.createServer(async (req, res) => {
