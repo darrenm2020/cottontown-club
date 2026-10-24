@@ -1328,7 +1328,7 @@ function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').rep
 const PUB_VER='2026-10-23a';
 /* APP_VER changes with every deploy that coach devices should pick up. When the published page's APP_VER
    differs from the running one, a coach device reloads itself if no clock is running, or shows a Refresh button. */
-const APP_VER='2026-10-24h';
+const APP_VER='2026-10-24i';
 const VER={tag:null,ready:false};
 async function checkVersion(){
   if(!SY.on||!canEdit()||document.visibilityState!=='visible')return;
@@ -1765,7 +1765,10 @@ function act(a,ds){
   renderAll();
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&UI.sheet){UI.sheet=null;renderSheet();}});
-document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;act(b.dataset.act,b.dataset);});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;
+  /* iPhone keeps focus in a text box when a button is tapped, which would hold off every redraw. */
+  const ae=document.activeElement;if(ae&&ae!==b&&!b.contains(ae)&&/^(INPUT|TEXTAREA)$/.test(ae.tagName)&&/^(BUTTON|A)$/.test(b.tagName))ae.blur();
+  act(b.dataset.act,b.dataset);});
 document.addEventListener('input',e=>{if(e.target&&e.target.id==='nt-name')UI.ntName=e.target.value;});
 document.addEventListener('change',e=>{
   const el=e.target;const k=el&&el.dataset&&el.dataset.cfg;if(!k||!CFG()||!canEdit())return;
@@ -2092,15 +2095,26 @@ function voiceBar(){
     <button class="btn small primary-s" data-act="vsend" ${v.state==='thinking'?'disabled':''}>Go</button></div></div>`;
   return h;
 }
+/* iPhone Safari can switch the mic on and never send words or an end event: Stop always works,
+   a silent mic gives up and points to keyboard dictation, and a pause after speech sends it. */
+function voiceDone(msg){const v=VOX;clearTimeout(v.tmr);clearTimeout(v.hard);if(v.state!=='listening')return;
+  try{v.rec&&v.rec.abort();}catch(e){}v.rec=null;v.state='idle';
+  if(v.text.trim())voiceSend(v.text.trim());else{if(msg)say(msg);renderPanel();}}
+const typeHint='Didn’t hear anything. Tap the box and use the 🎤 on your keyboard instead, then tap Go.';
 function voiceListen(){
-  if(!SpeechRec){say('Voice isn’t available in this browser. Type the change instead.');$('vtext')&&$('vtext').focus();return;}
-  if(VOX.state==='listening'){try{VOX.rec.stop();}catch(e){}return;}
-  const rec=new SpeechRec();VOX.rec=rec;rec.lang='en-US';rec.interimResults=true;rec.continuous=false;
-  VOX.state='listening';VOX.text='';renderPanel();
-  rec.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;VOX.text=t;const el=$('vtext');if(el)el.value=t;};
-  rec.onerror=e=>{VOX.state='idle';say(e.error==='not-allowed'?'Allow the microphone for this site to use voice.':'Didn’t catch that. Try again or type it.');renderPanel();};
-  rec.onend=()=>{if(VOX.state!=='listening')return;VOX.state='idle';if(VOX.text.trim())voiceSend(VOX.text.trim());else renderPanel();};
-  try{rec.start();}catch(e){VOX.state='idle';renderPanel();}
+  if(!SpeechRec){say('Voice isn’t available here. Tap the box and use the 🎤 on your keyboard, then tap Go.');$('vtext')&&$('vtext').focus();return;}
+  if(VOX.state==='listening'){voiceDone('');return;}
+  let rec;try{rec=new SpeechRec();}catch(e){say(typeHint);return;}
+  VOX.rec=rec;rec.lang='en-US';rec.interimResults=true;rec.continuous=false;
+  VOX.state='listening';VOX.text='';const a=document.activeElement;if(a&&a.id==='vtext')a.blur();renderPanel();
+  VOX.tmr=setTimeout(()=>{if(!VOX.text)voiceDone(typeHint);},8000);
+  VOX.hard=setTimeout(()=>voiceDone(typeHint),30000);
+  rec.onresult=e=>{if(VOX.rec!==rec)return;let t='';for(const r of e.results)t+=r[0].transcript;VOX.text=t;const el=$('vtext');if(el)el.value=t;
+    clearTimeout(VOX.tmr);VOX.tmr=setTimeout(()=>voiceDone(''),2500);};
+  rec.onerror=e=>{if(VOX.rec!==rec)return;const er=e.error;
+    voiceDone(er==='not-allowed'?'Allow the microphone for this site (Settings › Safari › Microphone), or use the 🎤 on your keyboard.':er==='aborted'?'':typeHint);};
+  rec.onend=()=>{if(VOX.rec===rec)voiceDone(VOX.text.trim()?'':typeHint);};
+  try{rec.start();}catch(e){voiceDone(typeHint);}
 }
 async function voiceSend(text){
   text=(text||(($('vtext')||{}).value)||'').trim();if(!text)return;
