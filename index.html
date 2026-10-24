@@ -1328,7 +1328,7 @@ function slug(s){return (s||'team').toLowerCase().replace(/[^a-z0-9]+/g,'-').rep
 const PUB_VER='2026-10-23a';
 /* APP_VER changes with every deploy that coach devices should pick up. When the published page's APP_VER
    differs from the running one, a coach device reloads itself if no clock is running, or shows a Refresh button. */
-const APP_VER='2026-10-24i';
+const APP_VER='2026-10-24j';
 const VER={tag:null,ready:false};
 async function checkVersion(){
   if(!SY.on||!canEdit()||document.visibilityState!=='visible')return;
@@ -2073,6 +2073,10 @@ function miniField(g,b,i,editable,pk,base){
 /* ---------- Talk to change the plan: speak (or type) a change, see it, then Apply ---------- */
 const VOX={state:'idle',text:'',res:null,undo:null,rec:null};
 const SpeechRec=window.SpeechRecognition||window.webkitSpeechRecognition;
+/* iPhone and iPad: the keyboard's own dictation beats Safari's speech recognition. A page can't start dictation,
+   so the mic opens the keyboard on the box and points to the keyboard's 🎤; Go sends it. */
+const IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const useKeyboardMic=()=>IOS||!SpeechRec;
 function voiceBar(){
   const v=VOX;let h=`<div class="vbar">`;
   if(v.state==='preview'&&v.res){const r=v.res;
@@ -2091,7 +2095,7 @@ function voiceBar(){
   if(v.undo&&v.state!=='preview')h+=`<div class="vundo"><span class="fine">Plan changed.</span><button class="linkb" data-act="vundo">Undo</button></div>`;
   const listening=v.state==='listening';
   h+=`<div class="vrow"><button class="vmic ${listening?'on':''}" data-act="vmic" aria-label="${listening?'Stop':'Talk to change the plan'}" ${SpeechRec?'':'title="Voice isn’t available in this browser; type instead"'}>${listening?'■':'🎤'}</button>
-    <input id="vtext" class="vtext" placeholder="${listening?'Listening…':'Tap 🎤 and say a change, or type it'}" value="${esc(v.state==='listening'?v.text:'')}" ${v.state==='thinking'?'disabled':''}>
+    <input id="vtext" class="vtext" enterkeyhint="go" autocomplete="off" placeholder="${listening?'Listening…':'Tap 🎤 and say a change, or type it'}" value="${esc(v.state==='listening'?v.text:'')}" ${v.state==='thinking'?'disabled':''}>
     <button class="btn small primary-s" data-act="vsend" ${v.state==='thinking'?'disabled':''}>Go</button></div></div>`;
   return h;
 }
@@ -2102,7 +2106,8 @@ function voiceDone(msg){const v=VOX;clearTimeout(v.tmr);clearTimeout(v.hard);if(
   if(v.text.trim())voiceSend(v.text.trim());else{if(msg)say(msg);renderPanel();}}
 const typeHint='Didn’t hear anything. Tap the box and use the 🎤 on your keyboard instead, then tap Go.';
 function voiceListen(){
-  if(!SpeechRec){say('Voice isn’t available here. Tap the box and use the 🎤 on your keyboard, then tap Go.');$('vtext')&&$('vtext').focus();return;}
+  if(useKeyboardMic()){const el=$('vtext');if(el){el.placeholder='Tap 🎤 on the keyboard and talk';el.focus();}
+    say('Tap the 🎤 on your keyboard (bottom corner), say the change, then tap Go.');return;}
   if(VOX.state==='listening'){voiceDone('');return;}
   let rec;try{rec=new SpeechRec();}catch(e){say(typeHint);return;}
   VOX.rec=rec;rec.lang='en-US';rec.interimResults=true;rec.continuous=false;
